@@ -1,0 +1,42 @@
+{
+  "kind": "reactive",
+  "today": "2026-04-28",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "email_threads": [
+    {
+      "subject": "Kitchen tile — vendor options",
+      "last_sender": "Hector Reyes",
+      "last_received": "2026-04-25T09:14:00-07:00",
+      "message_count": 3,
+      "unread_count": 0,
+      "preview": "Two ranges, ceramic and porcelain. Lead time 11 days."
+    },
+    {
+      "subject": "Drywall schedule slipping",
+      "last_sender": "Hector Reyes",
+      "last_received": "2026-04-26T11:02:00-07:00",
+      "message_count": 5,
+      "unread_count": 0,
+      "preview": "Crew pushed by a day. New target Tuesday."
+    }
+  ],
+  "seed_concerns": [
+    {
+      "id": "c-construction",
+      "name": "Construction at the house",
+      "description": "Kitchen tile and the inspection are open beats.",
+      "state": "active",
+      "source": "user"
+    }
+  ],
+  "concern_query_tests": [
+    {
+      "query": "what's happening with construction?",
+      "expected_concern_id": "c-construction",
+      "expected_evidence_ids": [
+        "thread:Kitchen tile — vendor options",
+        "thread:Drywall schedule slipping"
+      ]
+    }
+  ]
+}

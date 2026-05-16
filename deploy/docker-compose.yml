@@ -1,0 +1,29 @@
+# Reference docker-compose for Zeno V2.
+# Edit ./config.yaml (copy from deploy/config.example.yaml) before starting.
+#
+# Local Ollama on the host:
+#   - Mac/Windows: http://host.docker.internal:11434/v1 (works out of the box)
+#   - Linux: add `extra_hosts: ["host.docker.internal:host-gateway"]` (already
+#     enabled below) and ensure Ollama is listening on 0.0.0.0:11434.
+
+services:
+  zeno:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: zeno:latest
+    container_name: zeno
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7777:7777"
+    volumes:
+      - ./data:/data
+      - ./config.yaml:/config.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "/app/zeno", "health", "-config", "/config.yaml"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

@@ -1,0 +1,27 @@
+{
+  "card": {
+    "id": "owen-7bee",
+    "date": "2026-04-28",
+    "src": "ask",
+    "src_label": "Generated",
+    "rel": "low",
+    "kind": "",
+    "title": "Owen Reid's correspondence",
+    "sub": "I have no record of any messages from Owen Reid in your current inbox. The only open thread is the redline conversation, last touched by Saru Patel this morning.",
+    "meta": [],
+    "actions": [
+      {
+        "label": "Dismiss"
+      }
+    ]
+  },
+  "degraded": false,
+  "expect_hits": {
+    "title": true,
+    "sub": true,
+    "src": true,
+    "rel": true,
+    "not_degraded": true
+  },
+  "query": "What did Owen Reid say in his last email?"
+}

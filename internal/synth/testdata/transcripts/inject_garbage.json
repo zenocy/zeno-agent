@@ -1,0 +1,14 @@
+[
+  {
+    "req_match": "A high-signal mid-day event arrived",
+    "resp": {
+      "content": "I'm sorry, I cannot help with that request right now. <not even JSON>"
+    }
+  },
+  {
+    "req_match": "Render the briefing",
+    "resp": {
+      "content": "{\"date\":\"2026-04-30\",\"eyebrow\":\"one priority signal\",\"title\":\"Saru moved the board call to *10:30*.\",\"summary\":\"Redline answer needed before 10:30 — option-pool and the 1× non-participating preferred.\",\"tension\":80}"
+    }
+  }
+]

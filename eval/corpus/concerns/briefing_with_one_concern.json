@@ -1,0 +1,52 @@
+{
+  "today": "2026-04-28",
+  "expected_state": "morning_calm",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "calendar": [
+    {
+      "uid": "evt-1",
+      "start": "2026-04-28T11:00:00-07:00",
+      "end":   "2026-04-28T11:45:00-07:00",
+      "title": "Acuity — Series B narrative review",
+      "tag":   "work",
+      "attendees": ["Saru Patel", "Lin Vega"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "Kitchen tile — vendor options",
+      "last_sender": "Hector Reyes",
+      "last_received": "2026-04-25T09:14:00-07:00",
+      "message_count": 3,
+      "unread_count": 0,
+      "preview": "Two ranges, ceramic and porcelain. Lead time 11 days."
+    }
+  ],
+  "weather": {
+    "summary": "clear, light wind",
+    "temp_now": 13, "temp_high": 19,
+    "hours": [
+      { "h": "9",  "t": 13, "icon": "sun" },
+      { "h": "11", "t": 15, "icon": "sun" },
+      { "h": "13", "t": 17, "icon": "sun" },
+      { "h": "15", "t": 19, "icon": "cloud" }
+    ]
+  },
+  "seed_concerns": [
+    {
+      "id": "c-construction",
+      "name": "Construction at the house",
+      "description": "Kitchen tile and the inspection are open beats; contractor active.",
+      "state": "active",
+      "source": "user"
+    }
+  ],
+  "must_cards": [
+    {
+      "name": "Kitchen tile thread",
+      "src": "mail",
+      "title_contains": ["tile", "construction", "kitchen", "vendor"],
+      "sub_contains": ["ceramic", "porcelain", "vendor"]
+    }
+  ]
+}

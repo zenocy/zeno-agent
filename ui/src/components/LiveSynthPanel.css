@@ -1,0 +1,194 @@
+/* LiveSynthPanel — V2.4 live-trace UI.
+ *
+ * Ported from Zeno V2/Zeno.html:415–549 (the prototype canon). Class
+ * names match the prototype so the diff against the canon is a single
+ * grep. CSS variables (--accent, --accent-soft, --ink-*, --line,
+ * --font-mono, --font-display) come from src/design/tokens.css. */
+
+.live-synth-panel {
+  /* Mount/unmount animation: opacity fade + max-height collapse so the
+   * Topbar's row below doesn't jump when the panel mounts/dissolves. */
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  padding: 10px 24px 12px 24px;
+  background: transparent;
+  opacity: 1;
+  transition: opacity 0.6s ease-out;
+}
+
+.live-synth-panel.dissolving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Header: eyebrow ("working" / "thinking") + progress counter. */
+.live-synth-panel .trace-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.live-synth-panel .trace-eb {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.live-synth-panel .trace-progress {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Steps list. */
+.live-synth-panel .trace-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.live-synth-panel .trace-step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  transition: opacity 0.25s, color 0.25s;
+  position: relative;
+}
+
+.live-synth-panel .trace-step.done {
+  opacity: 0.7;
+}
+
+.live-synth-panel .trace-step.active {
+  opacity: 1;
+  color: var(--ink-2);
+}
+
+.live-synth-panel .trace-step.active .trace-bullet {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: tracePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tracePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  50% {
+    box-shadow: 0 0 0 5px var(--accent-soft);
+  }
+}
+
+/* Bullet (tool steps). */
+.live-synth-panel .trace-bullet {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  flex: 0 0 5px;
+  transform: translateY(-1px);
+}
+
+.live-synth-panel .trace-step.done .trace-bullet {
+  background: var(--ink-4);
+  box-shadow: none;
+}
+
+/* Tool row: op (mono uppercase) + target (display italic) + optional note. */
+.live-synth-panel .trace-op {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  flex: 0 0 auto;
+  min-width: 38px;
+}
+
+.live-synth-panel .trace-target {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-variation-settings: "opsz" 32;
+}
+
+.live-synth-panel .trace-step.done .trace-target {
+  color: var(--ink-3);
+}
+
+.live-synth-panel .trace-note {
+  font-size: 10.5px;
+  color: var(--ink-4);
+  margin-left: 2px;
+}
+
+/* Thought row: indented, with a vertical rule. */
+.live-synth-panel .trace-thought {
+  padding-left: 22px;
+  color: var(--ink-3);
+  position: relative;
+}
+
+.live-synth-panel .trace-thought .trace-rule {
+  position: absolute;
+  left: 12px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--line);
+}
+
+.live-synth-panel .trace-thought p {
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  font-variation-settings: "opsz" 32;
+  text-wrap: pretty;
+}
+
+.live-synth-panel .trace-step.active .trace-thought p {
+  color: var(--ink-2);
+}
+
+/* Body paragraph: streamed token deltas accumulate here. Fades in when
+ * the first delta arrives. */
+.live-synth-panel .live-body {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  animation: liveBodyFadeIn 0.25s ease-out;
+}
+
+.live-synth-panel .live-body p {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  font-variation-settings: "opsz" 36;
+  text-wrap: pretty;
+}
+
+@keyframes liveBodyFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

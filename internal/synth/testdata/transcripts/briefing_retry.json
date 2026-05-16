@@ -1,0 +1,26 @@
+[
+  {
+    "req_match": "Synthesize today's cards",
+    "resp": {
+      "content": "{\n  \"cards\": [\n    {\n      \"id\": \"saru\",\n      \"date\": \"2026-04-25\",\n      \"src\": \"mail\",\n      \"src_label\": \"Email · Acuity\",\n      \"rel\": \"high\",\n      \"kind\": \"\",\n      \"title\": \"Saru Patel · re: redline\",\n      \"sub\": \"Walked the redline with Lin. Two questions remain — option pool, and the 1× non-participating preferred.\",\n      \"meta\": [\"06:14\", \"·\", \"thread of 1\"],\n      \"actions\": [{\"label\": \"Draft a reply\", \"primary\": true}, {\"label\": \"Snooze\"}]\n    },\n    {\n      \"id\": \"run\",\n      \"date\": \"2026-04-25\",\n      \"src\": \"personal\",\n      \"src_label\": \"Health · Strava\",\n      \"rel\": \"low\",\n      \"kind\": \"personal\",\n      \"title\": \"Your run window is open 12:00–13:30\",\n      \"sub\": \"Forecast says clear. Aria moved lunch — the slot is yours.\",\n      \"meta\": [\"weather: clear · 16°\"],\n      \"actions\": [{\"label\": \"Block it\", \"primary\": true}, {\"label\": \"Suggest tomorrow\"}]\n    }\n  ]\n}"
+    }
+  },
+  {
+    "req_match": "Render the briefing",
+    "resp": {
+      "content": ""
+    }
+  },
+  {
+    "req_match": "Re-emit ONLY a valid JSON Briefing",
+    "resp": {
+      "content": ""
+    }
+  },
+  {
+    "req_match": "Render the briefing",
+    "resp": {
+      "content": "{\"date\":\"2026-04-25\",\"eyebrow\":\"recovered · 2 things worth knowing\",\"title\":\"A *late* start. The redline still wants you.\",\"summary\":\"Series B review at 11. Saru's redline has two open questions — both pre-discussed with Aria.\",\"tension\":42}"
+    }
+  }
+]

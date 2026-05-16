@@ -1,0 +1,81 @@
+{
+  "today": "2026-05-05",
+  "expected_state": "morning_calm",
+  "synth_time": "06:30",
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-standup",
+      "start": "2026-05-05T09:00:00-07:00",
+      "end":   "2026-05-05T09:15:00-07:00",
+      "title": "Eng standup",
+      "tag":   "work",
+      "attendees": ["Lin Vega"]
+    },
+    {
+      "uid": "evt-1on1",
+      "start": "2026-05-05T14:00:00-07:00",
+      "end":   "2026-05-05T14:30:00-07:00",
+      "title": "1:1 with Park",
+      "tag":   "work",
+      "attendees": ["Park Choi"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "weekly cohort numbers",
+      "last_sender": "Park Choi",
+      "last_received": "2026-05-04T18:30:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "Numbers attached. Nothing surprising — DAU flat, 7-day retention up 2pp."
+    }
+  ],
+  "stock_snapshots": [
+    {
+      "ticker": "AAPL",
+      "price": 210.5,
+      "prev_close": 200.0,
+      "open": 209.0,
+      "day_high": 211.4,
+      "day_low": 199.0,
+      "change_pct": 5.25,
+      "currency": "USD",
+      "minutes_ago": 5
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 150.2,
+      "prev_close": 150.1,
+      "open": 150.0,
+      "day_high": 150.5,
+      "day_low": 149.9,
+      "change_pct": 0.07,
+      "currency": "USD",
+      "minutes_ago": 5
+    }
+  ],
+  "stock_alerts": [
+    {
+      "evidence_id": "stock-alert-aapl-morning",
+      "ticker": "AAPL",
+      "price": 210.5,
+      "prev_close": 200.0,
+      "change_pct": 5.25,
+      "threshold_pct": 3.0,
+      "currency": "USD",
+      "minutes_ago": 60
+    }
+  ],
+  "must_cards_morning_calm": [
+    {
+      "name": "AAPL morning markets card",
+      "src": "markets",
+      "title_contains": ["aapl"],
+      "sub_contains":   ["210", "5.2", "200"]
+    }
+  ]
+}

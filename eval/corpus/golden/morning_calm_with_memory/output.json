@@ -1,0 +1,112 @@
+{
+  "briefing": {
+    "date": "2026-04-28",
+    "eyebrow": "this morning · 4 things worth knowing",
+    "title": "A calm start. *Series B* narrative review opens at 11.",
+    "summary": "The Series B narrative review opens at 11 — Saru, Lin, and Park will press the cohort table for slide 14. Reply to Saru first — the option-pool answer feeds the deck. Lia's pickup is on Sam; your run window is clear at lunch.",
+    "tension": 38,
+    "suggested_followup": "Draft the redline reply to Saru"
+  },
+  "cards": {
+    "cards": [
+      {
+        "id": "saru-774b",
+        "date": "2026-04-28",
+        "src": "mail",
+        "src_label": "Email · Saru Patel",
+        "rel": "high",
+        "kind": "",
+        "title": "Saru Patel · *redline* reply",
+        "sub": "Saru walked the redline with Lin. The option pool and the 1× non-participating preferred need answers.",
+        "meta": [
+          "06:14",
+          "·",
+          "1 msg"
+        ],
+        "actions": [
+          {
+            "label": "Draft a reply",
+            "primary": true
+          },
+          {
+            "label": "Snooze"
+          }
+        ],
+        "trace_id": "c6b85114-1fda-4267-bf9a-5440a315b142"
+      },
+      {
+        "id": "acuity-dc3e",
+        "date": "2026-04-28",
+        "src": "calendar",
+        "src_label": "Calendar · 11:00",
+        "rel": "high",
+        "kind": "",
+        "title": "Acuity — *Series B* narrative review",
+        "sub": "45 minutes with Saru, Lin, and Park. You closed last call on the pricing slide; the cohort table for slide 14 is still owed.",
+        "meta": [
+          "11:00",
+          "·",
+          "45m"
+        ],
+        "actions": [
+          {
+            "label": "Open agenda",
+            "primary": true
+          },
+          {
+            "label": "Move"
+          }
+        ],
+        "trace_id": "c6b85114-1fda-4267-bf9a-5440a315b142"
+      },
+      {
+        "id": "lia-b1ee",
+        "date": "2026-04-28",
+        "src": "personal",
+        "src_label": "Family · Sam",
+        "rel": "med",
+        "kind": "personal",
+        "title": "Lia's pickup at 15:30",
+        "sub": "Sam handles the school run. The 15:30 flag is sharp enough to move the 14:00 with Mara earlier.",
+        "meta": [
+          "15:30",
+          "·",
+          "Sam"
+        ],
+        "actions": [
+          {
+            "label": "Block 15:00–16:00",
+            "primary": true
+          },
+          {
+            "label": "Tell Sam yes"
+          }
+        ],
+        "trace_id": "c6b85114-1fda-4267-bf9a-5440a315b142"
+      },
+      {
+        "id": "owen-e9fe",
+        "date": "2026-04-28",
+        "src": "tasks",
+        "src_label": "Hiring · Ashby",
+        "rel": "med",
+        "kind": "",
+        "title": "Owen Reid panel — hold expires",
+        "sub": "Ashby confirmed three of four panelists. The slot hold expires at 17:00.",
+        "meta": [
+          "due 17:00"
+        ],
+        "actions": [
+          {
+            "label": "Pick a slot",
+            "primary": true
+          },
+          {
+            "label": "Delegate to Mara"
+          }
+        ],
+        "trace_id": "c6b85114-1fda-4267-bf9a-5440a315b142"
+      }
+    ]
+  }
+}

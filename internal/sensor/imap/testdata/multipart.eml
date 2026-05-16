@@ -1,0 +1,17 @@
+From: carol@example.test
+To: dave@example.test
+Subject: Quarterly review
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="boundary42"
+
+--boundary42
+Content-Type: text/plain; charset=utf-8
+
+Numbers are in. We're up 12 percent QoQ.
+
+Carol
+--boundary42
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Numbers are in. <b>We're up 12 percent QoQ.</b></p></body></html>
+--boundary42--

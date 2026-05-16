@@ -1,0 +1,140 @@
+{
+  "briefing": {
+    "date": "2026-04-28",
+    "eyebrow": "next event · in 45 minutes",
+    "title": "*Acuity Capital* — Series B narrative review.",
+    "summary": "Saru opens the Series B review with the pricing slide; the room will ask about the option pool and the 1× non-participating preferred terms. Park is waiting on your cutoff date to pull the cohort table for slide 14.",
+    "tension": 85,
+    "suggested_followup": "Confirm the 09:30 cutoff date for Park."
+  },
+  "cards": {
+    "cards": [
+      {
+        "id": "saru-6f96",
+        "date": "2026-04-28",
+        "src": "mail",
+        "src_label": "Email · 06:14",
+        "rel": "high",
+        "kind": "",
+        "title": "Saru Patel · re: redline",
+        "sub": "You and Lin worked through the redline last night. Two loose ends remain — how large the option pool should be, and the 1× non-participating preferred terms. Both need answers before the 11:00 Zoom.",
+        "meta": [
+          "06:14",
+          "·",
+          "1 msg"
+        ],
+        "actions": [
+          {
+            "label": "Draft a reply",
+            "primary": true
+          },
+          {
+            "label": "Snooze"
+          }
+        ],
+        "trace_id": "fa559117-6a05-4387-bdd1-44d0c11a7f6e"
+      },
+      {
+        "id": "acuity-c23c",
+        "date": "2026-04-28",
+        "src": "calendar",
+        "src_label": "Calendar · 11:00",
+        "rel": "high",
+        "kind": "",
+        "title": "Acuity — Series B narrative review",
+        "sub": "45 minutes with Saru, Lin, and Park. You ended last call on the pricing slide; cohort table for slide 14 is still owed.",
+        "meta": [
+          "11:00",
+          "·",
+          "45m",
+          "·"
+        ],
+        "actions": [
+          {
+            "label": "Open agenda",
+            "primary": true
+          },
+          {
+            "label": "Move"
+          }
+        ],
+        "trace_id": "fa559117-6a05-4387-bdd1-44d0c11a7f6e"
+      },
+      {
+        "id": "prep-4f8a",
+        "date": "2026-04-28",
+        "src": "calendar",
+        "src_label": "Calendar · 10:00",
+        "rel": "med",
+        "kind": "",
+        "title": "Prep block — pricing slide \u0026 cohort table",
+        "sub": "Forty-five minutes to lock the numbers before Saru, Lin, and Park join the Zoom. You need a cutoff date confirmed by 09:30 so Park can pull the latest cohort data.",
+        "meta": [
+          "10:00",
+          "·",
+          "45m"
+        ],
+        "actions": [
+          {
+            "label": "Open slide deck",
+            "primary": true
+          },
+          {
+            "label": "Move"
+          }
+        ],
+        "trace_id": "fa559117-6a05-4387-bdd1-44d0c11a7f6e"
+      },
+      {
+        "id": "park-09fd",
+        "date": "2026-04-28",
+        "src": "mail",
+        "src_label": "Email · 05:40",
+        "rel": "med",
+        "kind": "",
+        "title": "Park Choi · Cohort table for slide 14",
+        "sub": "The cohort table for slide 14 is still missing. Park is ready to pull the latest numbers, but needs a cutoff date confirmed by 09:30.",
+        "meta": [
+          "05:40",
+          "·",
+          "1 msg"
+        ],
+        "actions": [
+          {
+            "label": "Reply with cutoff",
+            "primary": true
+          },
+          {
+            "label": "Snooze"
+          }
+        ],
+        "trace_id": "fa559117-6a05-4387-bdd1-44d0c11a7f6e"
+      },
+      {
+        "id": "q2-28ba",
+        "date": "2026-04-28",
+        "src": "tasks",
+        "src_label": "Tasks · OKRs",
+        "rel": "low",
+        "kind": "",
+        "title": "Q2 OKR draft — review when calmer",
+        "sub": "She's keeping the Q2 OKR draft warm so it doesn't vanish into the post-meeting fatigue. Tonight is yours.",
+        "meta": [
+          "Mon 18:11",
+          "·",
+          "1 msg"
+        ],
+        "actions": [
+          {
+            "label": "Acknowledge receipt",
+            "primary": true
+          },
+          {
+            "label": "Open draft"
+          }
+        ],
+        "trace_id": "fa559117-6a05-4387-bdd1-44d0c11a7f6e"
+      }
+    ]
+  }
+}

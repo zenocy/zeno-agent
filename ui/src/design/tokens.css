@@ -1,0 +1,81 @@
+/*
+ * Zeno design tokens — ported verbatim from Zeno V2/Zeno.html.
+ * Light is the default; dark is opt-in via <html class="dark">.
+ *
+ * If you change a value here, also update doc/Phase3.md (or whichever phase
+ * owns the visual language for the current iteration).
+ */
+
+:root {
+  --bg: #f6f5f1;
+  --bg-rgb: 246, 245, 241;
+  --bg-elev: #fbfaf6;
+  --bg-card: #ffffff;
+  --line: rgba(14, 14, 12, 0.08);
+  --line-strong: rgba(14, 14, 12, 0.14);
+  --ink: #0e0e0c;
+  --ink-2: #2a2a26;
+  --ink-3: rgba(14, 14, 12, 0.62);
+  --ink-4: rgba(14, 14, 12, 0.42);
+  --ink-5: rgba(14, 14, 12, 0.22);
+  --accent: #3553d8;
+  --accent-soft: rgba(53, 83, 216, 0.1);
+  --amber: #b87b1e;
+  --amber-soft: rgba(184, 123, 30, 0.1);
+  --crit: #b8331e;
+  --crit-soft: rgba(184, 51, 30, 0.08);
+  --good: #2f7a4d;
+  --good-soft: rgba(47, 122, 77, 0.1);
+
+  --grid: 8px;
+  --rail: 360px;
+  --left: 64px;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "JetBrains Mono", monospace;
+  --font-display: "Fraunces", "Geist", serif;
+}
+
+html.dark {
+  --bg: #0c0d10;
+  --bg-rgb: 12, 13, 16;
+  --bg-elev: #131418;
+  --bg-card: #16181d;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.13);
+  --ink: #ecece6;
+  --ink-2: #d8d8d2;
+  --ink-3: rgba(236, 236, 230, 0.62);
+  --ink-4: rgba(236, 236, 230, 0.42);
+  --ink-5: rgba(236, 236, 230, 0.22);
+  --accent: #7a93ff;
+  --accent-soft: rgba(122, 147, 255, 0.14);
+  --amber: #d6a25a;
+  --amber-soft: rgba(214, 162, 90, 0.13);
+  --crit: #e07560;
+  --crit-soft: rgba(224, 117, 96, 0.1);
+  --good: #6dbf8e;
+  --good-soft: rgba(109, 191, 142, 0.14);
+}
+
+/* Geist stylistic sets give the typography the spec's exact texture. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}

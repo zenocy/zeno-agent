@@ -1,0 +1,61 @@
+{
+  "calmness": {
+    "dimension": "calmness",
+    "value": 3
+  },
+  "decisiveness": {
+    "dimension": "decisiveness",
+    "value": 3
+  },
+  "concreteness": {
+    "dimension": "concreteness",
+    "value": 3
+  },
+  "memory_grounding": {
+    "opener_tells": {
+      "dimension": "memory_opener_tells",
+      "value": 3
+    },
+    "fact_density": {
+      "dimension": "memory_fact_density",
+      "value": 3
+    },
+    "verbatim_leak": {
+      "dimension": "memory_verbatim_leak",
+      "value": 3
+    },
+    "with_vs_empty": {
+      "dimension": "memory_with_vs_empty",
+      "value": -1
+    },
+    "facts_injected": 0
+  },
+  "state_match": {
+    "expected": "deep_work",
+    "actual": "deep_work",
+    "ok": true
+  },
+  "tension_in_band": {
+    "state": "deep_work",
+    "tension": 20,
+    "low": 15,
+    "high": 25,
+    "ok": true,
+    "gated": true
+  },
+  "briefing_schema_ok": true,
+  "cards_schema_ok": true,
+  "must_cards": [
+    true,
+    true,
+    true,
+    true
+  ],
+  "must_card_labels": [
+    "Pricing v2 memo (long-deferred deep work)",
+    "Q2 hiring plan (long-deferred deep work)",
+    "Lia pickup confirmed (personal)",
+    "Protected-window framing [deep_work]"
+  ],
+  "italic_balanced": true
+}

@@ -1,0 +1,27 @@
+{
+  "card": {
+    "id": "dinner-b23a",
+    "date": "2026-04-28",
+    "src": "ask",
+    "src_label": "Generated",
+    "rel": "low",
+    "kind": "",
+    "title": "Dinner against the rain",
+    "sub": "Rain holds the sky from 18:00 onward, a steady dampness that keeps the air cool but not the roads slick. You have cleared the morning and the 14:00 review, leaving the evening *unbound*. Block the table if you want to trade the gray for a warm room.",
+    "meta": [],
+    "actions": [
+      {
+        "label": "Dismiss"
+      }
+    ]
+  },
+  "degraded": false,
+  "expect_hits": {
+    "title": true,
+    "sub": true,
+    "src": true,
+    "rel": true,
+    "not_degraded": true
+  },
+  "query": "Should I block tonight for dinner?"
+}

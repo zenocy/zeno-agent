@@ -1,0 +1,36 @@
+{
+  "kind": "reactive",
+  "today": "2026-05-10",
+  "expected_state": "morning_calm",
+  "user": {
+    "name": "Jamie",
+    "tz": "Europe/Athens"
+  },
+  "calendar": [
+    {
+      "uid": "evt-dinner",
+      "start": "2026-05-10T18:00:00+03:00",
+      "end":   "2026-05-10T19:30:00+03:00",
+      "title": "Dinner with the Andersons",
+      "location": "Mavro Provato, Athens",
+      "tag": "personal"
+    }
+  ],
+  "email_threads": [],
+  "memory": [
+    {
+      "subject": "partner",
+      "fact": "Partner is Sam.",
+      "category": "relationship",
+      "confidence": "high",
+      "source": "user"
+    }
+  ],
+  "query": "Share the details of tonight's 6pm dinner with my wife.",
+  "query_time": "10:30",
+  "reactive_expect": {
+    "src_in":  ["ask"],
+    "rel_in":  ["high", "med", "low"],
+    "must_not_be_degraded": true
+  }
+}

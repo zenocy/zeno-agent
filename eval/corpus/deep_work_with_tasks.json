@@ -1,0 +1,97 @@
+{
+  "today": "2026-04-29",
+  "expected_state": "deep_work",
+  "synth_time": "10:00",
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-standup",
+      "start": "2026-04-29T09:00:00-07:00",
+      "end":   "2026-04-29T09:15:00-07:00",
+      "title": "Eng standup (async-OK)",
+      "tag":   "work",
+      "attendees": []
+    },
+    {
+      "uid": "evt-pickup",
+      "start": "2026-04-29T15:30:00-07:00",
+      "end":   "2026-04-29T15:30:00-07:00",
+      "title": "Lia's pickup (Sam — confirmed)",
+      "tag":   "personal",
+      "attendees": ["Sam"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "Newsletter digest — quarterly",
+      "last_sender": "Stripe Atlas",
+      "last_received": "2026-04-29T03:14:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Routine quarterly. Glance-and-archive."
+    }
+  ],
+  "open_tasks": [
+    {
+      "title": "Finish pricing v2 memo",
+      "due_date": "2026-04-29",
+      "priority": "high",
+      "tags": ["work", "pricing"]
+    },
+    {
+      "title": "Draft Q2 hiring plan headcount table",
+      "due_date": "2026-04-30",
+      "priority": "high",
+      "tags": ["work", "hiring"]
+    },
+    {
+      "title": "Schedule dentist follow-up",
+      "priority": "low",
+      "tags": ["personal"]
+    }
+  ],
+  "weather": {
+    "summary": "clear, cool",
+    "temp_now": 11,
+    "temp_high": 16,
+    "hours": [
+      { "h": "9",  "t": 11, "icon": "sun" },
+      { "h": "11", "t": 13, "icon": "sun" },
+      { "h": "13", "t": 15, "icon": "sun" },
+      { "h": "15", "t": 16, "icon": "sun" },
+      { "h": "17", "t": 15, "icon": "cloud" },
+      { "h": "19", "t": 13, "icon": "cloud" },
+      { "h": "21", "t": 12, "icon": "cloud" }
+    ]
+  },
+  "run_window": {
+    "start": "2026-04-29T12:00:00-07:00",
+    "end":   "2026-04-29T13:00:00-07:00",
+    "condition": "clear, 14°"
+  },
+  "must_cards": [
+    {
+      "name": "Pricing v2 memo (high-priority open task)",
+      "src": ["tasks", "personal"],
+      "title_contains": ["pricing", "memo"],
+      "sub_contains":   ["pricing", "block", "today", "memo"]
+    },
+    {
+      "name": "Lia pickup confirmed (personal)",
+      "src": "personal",
+      "title_contains": ["lia", "pickup"],
+      "sub_contains":   ["sam", "confirmed", "15:30"]
+    }
+  ],
+  "must_cards_deep_work": [
+    {
+      "name": "Protected-window card naming a specific open task",
+      "src": ["tasks", "personal"],
+      "title_contains": ["pricing", "memo", "hiring", "headcount"],
+      "sub_contains":   ["block", "window", "today", "open"]
+    }
+  ]
+}

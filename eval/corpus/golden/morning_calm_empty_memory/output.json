@@ -1,0 +1,137 @@
+{
+  "briefing": {
+    "date": "2026-04-28",
+    "eyebrow": "this morning · 4 things worth knowing",
+    "title": "A calm start. *Saru* wants you before noon.",
+    "summary": "Saru's redline thread sits open — option pool and the 1× non-participating preferred need a word before the 11:00 Series B review. The rest of the morning breathes; Lia's pickup is on Sam, and the run window is clear at lunch.",
+    "tension": 32,
+    "suggested_followup": "Draft the reply to Saru"
+  },
+  "cards": {
+    "cards": [
+      {
+        "id": "saru-6f96",
+        "date": "2026-04-28",
+        "src": "mail",
+        "src_label": "Email · Acuity",
+        "rel": "high",
+        "kind": "",
+        "title": "Saru Patel · re: redline",
+        "sub": "Walked the *redline* with Lin. Two questions remain — option pool, and the 1× non-participating preferred.",
+        "meta": [
+          "06:14",
+          "·",
+          "thread of 1"
+        ],
+        "actions": [
+          {
+            "label": "Draft a reply",
+            "primary": true
+          },
+          {
+            "label": "Snooze"
+          }
+        ],
+        "trace_id": "f3807f72-9ef3-4fc3-9c97-a3898e07d9b8"
+      },
+      {
+        "id": "acuity-dc3e",
+        "date": "2026-04-28",
+        "src": "calendar",
+        "src_label": "Calendar · 11:00",
+        "rel": "high",
+        "kind": "",
+        "title": "Acuity — *Series B* narrative review",
+        "sub": "45 minutes to align on the Series B narrative. The redline thread from Saru is open — option pool and 1× non-participating preferred.",
+        "meta": [
+          "11:00",
+          "·",
+          "45m"
+        ],
+        "actions": [
+          {
+            "label": "Open agenda",
+            "primary": true
+          },
+          {
+            "label": "Move"
+          }
+        ],
+        "trace_id": "f3807f72-9ef3-4fc3-9c97-a3898e07d9b8"
+      },
+      {
+        "id": "lia-d56d",
+        "date": "2026-04-28",
+        "src": "personal",
+        "src_label": "Family · Sam",
+        "rel": "high",
+        "kind": "personal",
+        "title": "Lia's pickup with *Sam* at 15:30",
+        "sub": "Sam is waiting. The 15:30 slot is tight after the 14:00 with Mara.",
+        "meta": [
+          "15:30",
+          "·",
+          "soft commit"
+        ],
+        "actions": [
+          {
+            "label": "Block 15:00–16:00",
+            "primary": true
+          },
+          {
+            "label": "Tell Sam yes"
+          }
+        ],
+        "trace_id": "f3807f72-9ef3-4fc3-9c97-a3898e07d9b8"
+      },
+      {
+        "id": "owen-b77e",
+        "date": "2026-04-28",
+        "src": "tasks",
+        "src_label": "Hiring · Ashby",
+        "rel": "med",
+        "kind": "",
+        "title": "Owen Reid — pick a slot for the *final* panel",
+        "sub": "Three of four panelists confirmed. Hold expires today at 17:00.",
+        "meta": [
+          "due today"
+        ],
+        "actions": [
+          {
+            "label": "Pick a slot",
+            "primary": true
+          },
+          {
+            "label": "Delegate to Mara"
+          }
+        ],
+        "trace_id": "f3807f72-9ef3-4fc3-9c97-a3898e07d9b8"
+      },
+      {
+        "id": "1-2c26",
+        "date": "2026-04-28",
+        "src": "calendar",
+        "src_label": "Calendar · 14:00",
+        "rel": "med",
+        "kind": "",
+        "title": "1:1 — *Mara*",
+        "sub": "Thirty minutes to sync.",
+        "meta": [
+          "14:00",
+          "·",
+          "30m"
+        ],
+        "actions": [
+          {
+            "label": "Check agenda",
+            "primary": true
+          },
+          {
+            "label": "Move"
+          }
+        ],
+        "trace_id": "f3807f72-9ef3-4fc3-9c97-a3898e07d9b8"
+      }
+    ]
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "briefing": {
+    "date": "2026-04-28",
+    "eyebrow": "this morning · 4 things worth knowing",
+    "title": "A calm start. *Series B* narrative review opens at 11.",
+    "summary": "Saru leads the Series B narrative review at 11 — the redline notes from this morning are waiting, and the option-pool answer feeds the deck. Owen's panel slot expires at 17:00, and Lia's pickup with Sam lands at 15:30, solid after the Mara 1:1.",
+    "tension": 38,
+    "suggested_followup": "Draft the option-pool reply for Saru"
+  },
+  "cards": {
+    "cards": [
+      {
+        "id": "saru-5275",
+        "date": "2026-04-28",
+        "src": "mail",
+        "src_label": "Email · Acuity",
+        "rel": "high",
+        "kind": "",
+        "title": "Saru Patel · re: *redline*",
+        "sub": "Walked the redline with Lin. Two questions remain — option pool, and the 1× non-participating preferred.",
+        "meta": [
+          "06:14",
+          "·",
+          "thread of 1"
+        ],
+        "actions": [
+          {
+            "label": "Draft a reply",
+            "primary": true
+          },
+          {
+            "label": "Snooze"
+          }
+        ],
+        "trace_id": "9f38fa0f-0e4e-444f-8f74-d8875fffd6af"
+      },
+      {
+        "id": "acuity-dc3e",
+        "date": "2026-04-28",
+        "src": "calendar",
+        "src_label": "Calendar · 11:00",
+        "rel": "high",
+        "kind": "",
+        "title": "Acuity — *Series B* narrative review",
+        "sub": "45 minutes with Saru. Redline notes from this morning are waiting.",
+        "meta": [
+          "11:00",
+          "·",
+          "45m"
+        ],
+        "actions": [
+          {
+            "label": "Open agenda",
+            "primary": true
+          },
+          {
+            "label": "Move"
+          }
+        ],
+        "trace_id": "9f38fa0f-0e4e-444f-8f74-d8875fffd6af"
+      },
+      {
+        "id": "owen-b77e",
+        "date": "2026-04-28",
+        "src": "tasks",
+        "src_label": "Hiring · Ashby",
+        "rel": "med",
+        "kind": "",
+        "title": "Owen Reid — pick a slot for the *final* panel",
+        "sub": "Three of four panelists confirmed. Hold expires today at 17:00.",
+        "meta": [
+          "due today"
+        ],
+        "actions": [
+          {
+            "label": "Pick a slot",
+            "primary": true
+          },
+          {
+            "label": "Delegate to Mara"
+          }
+        ],
+        "trace_id": "9f38fa0f-0e4e-444f-8f74-d8875fffd6af"
+      },
+      {
+        "id": "lia-2539",
+        "date": "2026-04-28",
+        "src": "personal",
+        "src_label": "Family · Sam",
+        "rel": "med",
+        "kind": "personal",
+        "title": "Lia's pickup with *Sam*",
+        "sub": "Sam needs a ride. 15:30 is a solid block after the Mara 1:1.",
+        "meta": [
+          "15:30",
+          "·",
+          "personal"
+        ],
+        "actions": [
+          {
+            "label": "Block traffic",
+            "primary": true
+          },
+          {
+            "label": "Confirm with Sam"
+          }
+        ],
+        "trace_id": "9f38fa0f-0e4e-444f-8f74-d8875fffd6af"
+      }
+    ]
+  }
+}

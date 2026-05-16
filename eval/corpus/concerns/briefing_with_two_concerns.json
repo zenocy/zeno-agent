@@ -1,0 +1,65 @@
+{
+  "today": "2026-04-28",
+  "expected_state": "morning_calm",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "calendar": [
+    {
+      "uid": "evt-1",
+      "start": "2026-04-28T11:00:00-07:00",
+      "end":   "2026-04-28T11:45:00-07:00",
+      "title": "Acuity — Series B narrative review",
+      "tag":   "work",
+      "attendees": ["Saru Patel", "Lin Vega"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "Drywall schedule slipping",
+      "last_sender": "Hector Reyes",
+      "last_received": "2026-04-26T11:02:00-07:00",
+      "message_count": 5,
+      "unread_count": 0,
+      "preview": "Crew pushed by a day. New target Tuesday."
+    },
+    {
+      "subject": "Frankfurt flights — Lufthansa option",
+      "last_sender": "Travel desk",
+      "last_received": "2026-04-04T11:14:00-07:00",
+      "message_count": 2,
+      "unread_count": 0,
+      "preview": "LH 458 Tuesday afternoon. Returns Friday morning."
+    }
+  ],
+  "weather": {
+    "summary": "clear",
+    "temp_now": 13, "temp_high": 19,
+    "hours": [
+      { "h": "9",  "t": 13, "icon": "sun" },
+      { "h": "13", "t": 17, "icon": "sun" }
+    ]
+  },
+  "seed_concerns": [
+    {
+      "id": "c-construction",
+      "name": "Construction at the house",
+      "description": "Kitchen tile and the inspection are open beats.",
+      "state": "active",
+      "source": "user"
+    },
+    {
+      "id": "c-frankfurt",
+      "name": "Frankfurt trip",
+      "description": "Mid-June review with Heim — flights held, agenda firming.",
+      "state": "active",
+      "source": "user"
+    }
+  ],
+  "must_cards": [
+    {
+      "name": "Series B review",
+      "src": "calendar",
+      "title_contains": ["Acuity", "Series B"],
+      "sub_contains": ["Saru", "Lin", "narrative"]
+    }
+  ]
+}

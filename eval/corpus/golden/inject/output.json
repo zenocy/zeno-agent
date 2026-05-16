@@ -1,0 +1,37 @@
+{
+  "briefing": {
+    "date": "2026-04-30",
+    "eyebrow": "one priority signal",
+    "title": "Saru replied — *with terms*.",
+    "summary": "Saru replied — *with terms*. Lin is cc'd; tone reads positive. He references your Friday redline. Worth a reply before the 11:00.",
+    "tension": 88
+  },
+  "cards": {
+    "cards": [
+      {
+        "id": "saru-6f96",
+        "date": "2026-04-30",
+        "src": "mail",
+        "src_label": "Email · Acuity",
+        "rel": "high",
+        "kind": "",
+        "title": "Saru Patel · re: redline",
+        "sub": "Walked the redline with Saru. Two points remain — the option pool size and the 1× non-participating preferred terms.",
+        "meta": [
+          "09:14",
+          "·",
+          "thread of 1"
+        ],
+        "actions": [
+          {
+            "label": "Draft a reply",
+            "primary": true
+          },
+          {
+            "label": "Snooze"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "kind": "concern_recognition",
+  "today": "2026-04-28",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "recognition_lookback_days": 21,
+  "recognition_daily_cap": 2,
+  "email_threads": [
+    {
+      "subject": "Construction Industry Weekly — issue 124",
+      "last_sender": "newsletters@cinet",
+      "last_received": "2026-04-07T06:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Material costs steady; lithium-ion forklift adoption rising. 12-min read."
+    },
+    {
+      "subject": "Construction Industry Weekly — issue 125",
+      "last_sender": "newsletters@cinet",
+      "last_received": "2026-04-14T06:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Permit-tech adoption; the hidden cost of material rework."
+    },
+    {
+      "subject": "Construction Industry Weekly — issue 126",
+      "last_sender": "newsletters@cinet",
+      "last_received": "2026-04-21T06:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Q1 review of regional contractor margins; modular framing pilots."
+    },
+    {
+      "subject": "Construction Industry Weekly — issue 127",
+      "last_sender": "newsletters@cinet",
+      "last_received": "2026-04-28T06:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Spring review: code revisions across three states; tile vendors weather a soft Q1."
+    }
+  ],
+  "expected_concerns": []
+}

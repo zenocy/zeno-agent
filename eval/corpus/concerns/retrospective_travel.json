@@ -1,0 +1,85 @@
+{
+  "kind": "retrospective",
+  "today": "2026-04-28",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "retrospective_lookback_days": 90,
+  "seed_concerns": [
+    {
+      "id": "c-frankfurt",
+      "name": "Frankfurt trip",
+      "description": "Mid-June review with Heim.",
+      "state": "active",
+      "source": "user"
+    }
+  ],
+  "calendar": [
+    {
+      "uid": "evt-frankfurt-1",
+      "start": "2026-06-15T13:30:00+02:00",
+      "end":   "2026-06-15T15:00:00+02:00",
+      "title": "Frankfurt — Heim review (kickoff)",
+      "tag":   "work",
+      "attendees": ["Tomas Heim", "Lin Vega"]
+    },
+    {
+      "uid": "evt-frankfurt-2",
+      "start": "2026-06-16T10:00:00+02:00",
+      "end":   "2026-06-16T11:30:00+02:00",
+      "title": "Frankfurt — partner deep-dive",
+      "tag":   "work",
+      "attendees": ["Tomas Heim"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "Frankfurt flights — Lufthansa option",
+      "last_sender": "Travel desk",
+      "last_received": "2026-04-04T11:14:00-07:00",
+      "message_count": 2,
+      "unread_count": 0,
+      "preview": "LH 458 Tuesday afternoon. Returns Friday morning."
+    },
+    {
+      "subject": "Frankfurt hotel — Hessischer Hof",
+      "last_sender": "Travel desk",
+      "last_received": "2026-04-07T09:30:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "King room, 4 nights. Confirmed."
+    },
+    {
+      "subject": "Re: Frankfurt — agenda + dinner Wed",
+      "last_sender": "Tomas Heim",
+      "last_received": "2026-04-12T14:00:00-07:00",
+      "message_count": 4,
+      "unread_count": 0,
+      "preview": "Booked Wed dinner at Margarete."
+    },
+    {
+      "subject": "Q1 sales recap",
+      "last_sender": "Lin Vega",
+      "last_received": "2026-04-14T11:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "Numbers attached. Up 14% YoY."
+    },
+    {
+      "subject": "Frankfurt visa — paperwork ready",
+      "last_sender": "Legal",
+      "last_received": "2026-04-18T08:30:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "Letter of invitation drafted; Heim signed earlier today."
+    }
+  ],
+  "expected_concern_tags": {
+    "c-frankfurt": [
+      "thread:Frankfurt flights — Lufthansa option",
+      "thread:Frankfurt hotel — Hessischer Hof",
+      "thread:Re: Frankfurt — agenda + dinner Wed",
+      "thread:Frankfurt visa — paperwork ready",
+      "evt-frankfurt-1",
+      "evt-frankfurt-2"
+    ]
+  }
+}

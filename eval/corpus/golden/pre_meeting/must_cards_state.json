@@ -1,0 +1,22 @@
+{
+  "state": "pre_meeting",
+  "must_cards": [
+    {
+      "name": "Attendee context surfaced",
+      "src": [
+        "mail"
+      ],
+      "title_contains": [
+        "saru",
+        "lin",
+        "park"
+      ],
+      "sub_contains": [
+        "saru",
+        "lin",
+        "park",
+        "11:00"
+      ]
+    }
+  ]
+}

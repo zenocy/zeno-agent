@@ -1,0 +1,27 @@
+{
+  "card": {
+    "id": "park-2d7b",
+    "date": "2026-04-28",
+    "src": "ask",
+    "src_label": "Generated",
+    "rel": "med",
+    "kind": "",
+    "title": "Park's request",
+    "sub": "You haven't filled the two *blank* metrics in the cohort table Park sent this morning at 07:48. He is also out the second week of June.",
+    "meta": [],
+    "actions": [
+      {
+        "label": "Dismiss"
+      }
+    ]
+  },
+  "degraded": false,
+  "expect_hits": {
+    "title": true,
+    "sub": true,
+    "src": true,
+    "rel": true,
+    "not_degraded": true
+  },
+  "query": "What about the thing with Park?"
+}

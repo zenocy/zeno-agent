@@ -1,0 +1,18 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//zeno-test//EN
+BEGIN:VEVENT
+UID:attendees-1@example.test
+DTSTAMP:20260430T160000Z
+DTSTART;TZID=America/Los_Angeles:20260430T110000
+DTEND;TZID=America/Los_Angeles:20260430T120000
+LAST-MODIFIED:20260430T154500Z
+SUMMARY:Acuity — Series B review (board)
+CATEGORIES:Work
+ORGANIZER;CN=Mira Voss:mailto:mira@zenocy.dev
+ATTENDEE;CN=Saru Patel;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED:mailto:saru@example.com
+ATTENDEE;CN=Lin Vega;ROLE=REQ-PARTICIPANT:mailto:lin@example.com
+ATTENDEE;CN=Park Choi;ROLE=REQ-PARTICIPANT:mailto:park@example.com
+ATTENDEE:mailto:bare-no-cn@example.com
+END:VEVENT
+END:VCALENDAR

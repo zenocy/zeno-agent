@@ -1,0 +1,266 @@
+# Zeno V2 — example configuration. Copy to ./config.yaml and edit.
+# Environment variables prefixed ZENO_ override these values.
+# Nested keys use underscores: ZENO_SERVER_PORT=8080.
+
+server:
+  bind: 127.0.0.1            # 0.0.0.0 to expose on LAN (set lan_token below)
+                             # Override at runtime: zeno serve --bind 0.0.0.0
+  port: 7777
+  lan_token: ""              # bearer token required on /api/* when bound off-loopback
+                             # Override at runtime: zeno serve --lan-token <secret>
+  read_timeout_sec: 30
+  write_timeout_sec: 0    # 0 = disabled; route-level deadlines apply (needed for reactive Ask)
+  shutdown_sec: 10
+
+logging:
+  level: info                # debug | info | warn | error
+  format: text               # text | json
+
+db:
+  path: ./data/zeno.db
+
+llm:
+  endpoint: http://host.docker.internal:11434/v1   # Ollama on the host
+  api_key: ""                                       # leave empty for local
+  model: gemma3:4b
+  # Per-HTTP-call transport timeout. This is the http.Client.Timeout that
+  # caps any single request to the LLM endpoint (including reading the
+  # response body). MUST exceed any per-stage deadline below — otherwise a
+  # slow but valid call gets cut off here before the loop can decide what
+  # to do. Default 120s comfortably exceeds reactive_deadline_sec (45) and
+  # synth.briefing_timeout_sec (45) on local hardware.
+  timeout_sec: 120
+  # Max wall-clock time for a reactive Ask (InputBar query). Default 45s —
+  # tuned for the "ambient" feel (long enough for a 35B local model to answer,
+  # short enough to never look like the UI hung). Raise to ~90 if you route
+  # the briefing/reactive calls to a slower model. Must be less than
+  # server.write_timeout_sec (or set write_timeout_sec: 0, the default).
+  reactive_deadline_sec: 45
+  # Network-level retry policy for transient LLM endpoint failures (5xx, 429,
+  # network timeouts). Backoff is exponential with ±20% jitter starting at
+  # retry_initial_backoff_ms, doubling each attempt, capped at
+  # retry_max_backoff_ms. Default 3 attempts × 250ms..8s = up to ~5s extra
+  # wall-clock on the slowest path.
+  retry_max_attempts: 3
+  retry_initial_backoff_ms: 250
+  retry_max_backoff_ms: 8000
+  # JSON-schema response_format support. Set to "on" to send the compiled
+  # schema along with each structured-output request (eliminates most repair-
+  # loop traffic by construction). "auto" probes the endpoint at startup;
+  # "off" (default in V2.1.0 pending Phase 0 probe) keeps json_object-only.
+  json_schema_mode: off
+  # Completion-token budget applied to every structured-output call by
+  # default (callers may override per-call via WithMaxTokens). Set generously
+  # because Qwen3-family models in thinking mode emit 5–8K tokens of
+  # <think>...</think> reasoning before the final JSON; the LM-Studio
+  # default ceiling (~1K) truncates the response mid-think and we never
+  # see the actual answer.
+  max_tokens: 16384
+  # When true, prepend "/no_think" to the briefing system prompt on Qwen3
+  # models. Suppresses chain-of-thought emission for the literary briefing
+  # call (one shot, no tools — scratch reasoning earns nothing). Cuts
+  # briefing latency from ~2 min to ~30 s on local hardware. May regress
+  # voice quality if the model relies on think-tokens for prose shape;
+  # measure with `make eval` before flipping. Default false. Other surfaces
+  # (cards, reactive) keep think enabled regardless.
+  no_think: false
+
+# Per-stage timeout budgets for the morning synthesizer run. The cron tick
+# enforces cron_budget_sec as a hard ceiling; the runner subdivides it
+# between cards and briefing. On briefing failure, cards are persisted with
+# a degraded-briefing fallback row so the user still wakes up to a surface.
+synth:
+  cards_timeout_sec:    30   # cards loop (tool-using); raise for slower models
+  briefing_timeout_sec: 45   # briefing single-call
+  cron_budget_sec:      90   # cards + briefing + margin
+  tool_timeout_sec:     5    # per individual tool execution inside the loop
+  # Iteration caps for the tool-using loops. Each iteration is one LLM call;
+  # the loop exits early when the model emits a tool-call-free response or
+  # hits the timeout. The cap is the safety net against a model that loops
+  # on tool calls indefinitely. Cards default 6, reactive default 4.
+  cards_max_iterations:    6
+  reactive_max_iterations: 4
+
+sensors:
+  imap:
+    host: imap.fastmail.com
+    port: 993
+    username: you@example.com
+    password: ""             # use an app password
+    tls: implicit            # implicit | starttls
+    folders:
+      - INBOX
+    # V2.8.0 action surface: where draft_reply / forward / send_reply
+    # save the outgoing copy. Defaults match Fastmail; iCloud users
+    # often need "INBOX.Drafts" / "INBOX.Sent" instead.
+    drafts_folder: Drafts
+    sent_folder: Sent
+    # Allowlist for the move_mail action. The LLM can only emit a
+    # destination from this list (case-insensitive); unknown folders
+    # are rejected with a toast. Add custom folders here if the user
+    # archives into something other than the defaults.
+    allowed_move_folders:
+      - Inbox
+      - Archive
+      - Trash
+
+  # V2.8.0 SMTP submission. Empty host disables SMTP and the
+  # send_reply / forward actions degrade to draft-only — the user
+  # always retains the option to save a draft, even without SMTP.
+  smtp:
+    host: smtp.fastmail.com
+    port: 587
+    username: you@example.com
+    password: ""             # use an app password (same as IMAP, typically)
+    tls: starttls            # starttls (587) | implicit (465)
+    from: ""                 # display From; defaults to username
+  caldav:
+    url: https://caldav.fastmail.com/dav/
+    username: you@example.com
+    password: ""
+  # V2.12 CardDAV contacts sensor. Polls Fastmail (or any CardDAV server) for
+  # the user's address book and caches it locally so the WhatsApp send
+  # action can resolve "my wife" → vCard → phone → JID. Optional: when off,
+  # WhatsApp recipients fall back to manually-curated memory-fact contacts.
+  carddav:
+    enabled: false
+    url: https://carddav.fastmail.com/
+    username: you@example.com
+    password: ""
+    sync_sec: 300            # poll cadence
+  weather:
+    latitude: 37.7749
+    longitude: -122.4194
+    timezone: America/Los_Angeles
+  # V2.7 WhatsApp integration. Despite living under "sensors" for grouping,
+  # this is NOT a polling sensor — whatsmeow runs a persistent socket. See
+  # docs/whatsapp.md for the privacy contract, ban-risk caveats, and
+  # pairing flow. Enable, then pair via Settings → WhatsApp; the QR-link
+  # uses your real WhatsApp number as a "linked device". Allowlist and
+  # mention-name live in the whatsapp_config table managed by the UI.
+  whatsapp:
+    enabled: false                   # off until you're ready to pair
+    db_path: ./data/whatsapp.db      # whatsmeow session store (separate
+                                     # from data/zeno.db so library schema
+                                     # migrations don't collide with gorm)
+    daily_send_cap: 50               # V2.12 — bound on proactive `send_whatsapp`
+                                     # dispatches per user-tz day. Receive-reply
+                                     # path is uncapped (it's 1:1). 0 disables.
+
+schedule:
+  morning_cron: "0 7 * * *"   # 07:00 daily
+  sync_cron:    "*/10 * * * *"  # every 10 minutes
+
+projections:
+  run_window_min_minutes:   45     # smallest qualifying clear window
+  run_window_max_wind_kmh:  25     # above this, the window is rejected
+  run_window_earliest_hour: 6      # local time
+  run_window_latest_hour:   20     # local time
+  open_threads_max:         20     # cap on /api/projections/email/open
+  lookback_days:            14     # how far back projections fold the log
+
+# Derived-memory relevance ranking. The embedder turns each fact into a vector
+# at warmup; the synthesizer reranks the candidate pool by cosine similarity to
+# the current query before handing facts to the LLM. Endpoint/api_key fall back
+# to llm.endpoint / llm.api_key when empty, so a single OpenAI-compatible host
+# that serves both chat and /v1/embeddings models needs no overrides here.
+memory:
+  # Embedding model id — must be served by embedder_endpoint (or llm.endpoint
+  # if that's empty). Default is a 768-dim local model that runs well in
+  # LM Studio / Ollama. Swap to e.g. "text-embedding-3-small" when pointing at
+  # OpenAI, or any other model the endpoint exposes via /v1/embeddings.
+  embedder_model: nomic-embed-text-v2-moe
+  # embedder_endpoint: ""        # optional; falls back to llm.endpoint
+  # embedder_api_key: ""         # optional; falls back to llm.api_key
+  embedder_timeout_ms: 3000
+  # Output vector size. 0 keeps the model's native dimensionality (768 for the
+  # nomic default). Set explicitly for Matryoshka-style models that accept the
+  # OpenAI "dimensions" parameter and truncate output — e.g. Qwen3-Embedding-8B
+  # supports up to 4096, text-embedding-3-small up to 1536, text-embedding-3-
+  # large up to 3072. The cache key folds in dims when non-zero (model_id
+  # becomes "<model>@<dims>"), so changing dims auto-evicts old rows on the
+  # next warmup and re-embeds every fact at the new width.
+  embedder_dims: 0
+  rerank_enabled:  true
+  rerank_w_sim:    1.0           # weight on cosine similarity
+  rerank_w_conf:   0.3           # weight on stored fact confidence
+  rerank_min_score: 0.0          # drop facts whose composite score falls below this
+  reactive_pool:   30            # candidate pool size for reactive Ask
+  cards_pool:      50            # candidate pool size for the cards loop
+
+# V2.5.0 Concerns subsystem.
+concerns:
+  # Days of inactivity before an active concern surfaces a "ready to retire"
+  # note on the review surface. The user explicitly approves retirement via
+  # the End action; this knob never auto-ends a concern. Default 90 days.
+  auto_retire_days: 90
+
+# V2.9 reminder dispatch. The reminder sweeper itself runs whenever a
+# reminders store + injector are wired (independent of this block); these
+# knobs only control which outbound channels fire when a reminder is due.
+# Defaults preserve the V2.8 inject-into-cards behavior.
+reminders:
+  # Continue surfacing fired reminders as reactive cards in the briefing.
+  inject_enabled: true
+  # When true AND whatsapp_to is set AND the WhatsApp service is paired,
+  # the sweeper sends "⏰ <title>\n<body>" to whatsapp_to. Off by default;
+  # the integration is opt-in because pairing your phone is a one-time
+  # action and you may want reminders to stay in-app only.
+  whatsapp_enabled: false
+  # Recipient JID. Use your own paired account's JID to send to yourself.
+  # Format: <number>@s.whatsapp.net (e.g. "447xxxxxxxxx@s.whatsapp.net").
+  whatsapp_to: ""
+
+# Operational visibility. Prometheus metrics are served at /api/metrics
+# (gated by the same lan_token bearer as the rest of /api/*); a Prometheus
+# scraper must send `Authorization: Bearer ${lan_token}`.
+#
+# A periodic stats.snapshot event is appended to the observation log so the
+# UI Stats panel can render without external scraping. Prometheus is the
+# source of truth for percentiles; the snapshot view may lag by up to one
+# tick.
+metrics:
+  enabled: true
+  snapshot_enabled: true
+  snapshot_interval_sec: 60
+  # Threshold above which a SQLite query logs at WARN and feeds the
+  # zeno_db_query_duration_seconds histogram. Raise on slow disks.
+  slow_query_threshold_ms: 200
+  # Threshold above which a 2xx HTTP request logs at INFO with slow=true.
+  # Faster 2xx requests log at DEBUG to keep INFO output actionable.
+  http_slow_ms: 500
+
+# V2.6 Web tools (Jina AI). One bearer key covers Reader (URL → markdown)
+# and Search (query → top-N pre-rendered markdown). Get a key — and 10M
+# free tokens — at https://jina.ai/?sui=apikey. Empty api_key disables
+# the search_web + read_url tools entirely; the LLM never sees them.
+#
+# Override the key from the environment instead of committing it:
+#   ZENO_WEB_JINA_API_KEY=jina_xxx
+web:
+  jina:
+    api_key: ""                     # required to enable web tools
+    base_url: https://r.jina.ai     # Reader endpoint; EU mirror: https://eu.r.jina.ai
+    search_base_url: https://s.jina.ai  # Search endpoint; EU mirror: https://eu.s.jina.ai
+    timeout_sec: 20                 # HTTP timeout for one Jina call
+    search_ttl_sec: 21600           # 6h: how long a Search response is cached
+    read_ttl_sec: 86400             # 24h: how long a Read response is cached
+                                    # (login-page-looking responses get 5min)
+    max_results: 5                  # default top-N for Search; LLM tool can pass max_results to override (1-5)
+
+    # Saved searches refresh on each SyncCron tick (gated by search_ttl_sec
+    # so each query hits Jina at most every 6h by default). Each refresh
+    # appends one observation per saved search to the log; the inject
+    # subscriber sees them on the bus and can promote a high-signal
+    # result into a card. Empty list disables the sensor.
+    #
+    # An empty api_key combined with a non-empty saved_searches list is a
+    # FATAL boot error — silent disable would be a surprise on a paid API.
+    saved_searches: []
+    # Example:
+    # saved_searches:
+    #   - name: golang-news
+    #     query: "Go 1.24 release notes"
+    #     site: go.dev
+    #   - name: zen-koan-of-the-week
+    #     query: "zen koan thursday"

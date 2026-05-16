@@ -1,0 +1,14 @@
+[
+  {
+    "req_match": "A high-signal mid-day event arrived",
+    "resp": {
+      "content": "{\n  \"cards\": [\n    {\n      \"id\": \"first\",\n      \"date\": \"2026-04-30\",\n      \"src\": \"mail\",\n      \"src_label\": \"Email · Acuity\",\n      \"rel\": \"high\",\n      \"kind\": \"\",\n      \"title\": \"Saru moved board call to 10:30\",\n      \"sub\": \"Need redline answer before 10:30 — option pool, non-participating preferred.\",\n      \"meta\": [\"10:30\"],\n      \"actions\": [{\"label\": \"Reply\", \"primary\": true}]\n    },\n    {\n      \"id\": \"extra\",\n      \"date\": \"2026-04-30\",\n      \"src\": \"mail\",\n      \"src_label\": \"Email · Other\",\n      \"rel\": \"med\",\n      \"kind\": \"\",\n      \"title\": \"Cohort table draft from Park\",\n      \"sub\": \"Park sent the cohort tab; two metrics still blank — net dollar retention plus the 12-month cohort.\",\n      \"meta\": [\"draft\"],\n      \"actions\": [{\"label\": \"Open\"}]\n    }\n  ]\n}"
+    }
+  },
+  {
+    "req_match": "Render the briefing",
+    "resp": {
+      "content": "{\"date\":\"2026-04-30\",\"eyebrow\":\"one priority signal\",\"title\":\"Saru moved the board call to *10:30*.\",\"summary\":\"Redline answer needed before 10:30. Confirm option-pool and the 1× non-participating preferred — that's the call.\",\"tension\":85}"
+    }
+  }
+]

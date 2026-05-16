@@ -1,0 +1,8 @@
+{
+  "model": "qwen/qwen3.6-35b-a3b",
+  "endpoint": "http://192.168.88.45:1234/v1",
+  "frozen_at": "2026-04-27T16:32:37.277552Z",
+  "json_schema_on": true,
+  "fixture_name": "pre_meeting",
+  "fixture_kind": "morning"
+}

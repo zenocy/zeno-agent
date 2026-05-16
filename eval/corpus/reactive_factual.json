@@ -1,0 +1,60 @@
+{
+  "kind": "reactive",
+  "today": "2026-04-28",
+  "expected_state": "morning_calm",
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-acuity",
+      "start": "2026-04-28T11:00:00-07:00",
+      "end":   "2026-04-28T11:45:00-07:00",
+      "title": "Acuity — Series B narrative review",
+      "tag":   "work",
+      "attendees": ["Saru Patel", "Lin Vega", "Park Choi"]
+    },
+    {
+      "uid": "evt-1on1",
+      "start": "2026-04-28T14:00:00-07:00",
+      "end":   "2026-04-28T14:30:00-07:00",
+      "title": "1:1 — Mara",
+      "tag":   "work",
+      "attendees": ["Mara Cole"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "re: redline",
+      "last_sender": "Saru Patel",
+      "last_received": "2026-04-28T06:14:00-07:00",
+      "message_count": 7,
+      "unread_count": 2,
+      "preview": "Walked the redline with Lin. Two questions remain — option pool, and the 1× non-participating preferred."
+    }
+  ],
+  "weather": {
+    "summary": "clear, light wind",
+    "temp_now": 13,
+    "temp_high": 19,
+    "hours": [
+      { "h": "9",  "t": 13, "icon": "sun"  },
+      { "h": "11", "t": 15, "icon": "sun"  },
+      { "h": "13", "t": 17, "icon": "sun"  },
+      { "h": "15", "t": 19, "icon": "cloud"},
+      { "h": "17", "t": 18, "icon": "cloud"},
+      { "h": "19", "t": 16, "icon": "rain" },
+      { "h": "21", "t": 14, "icon": "rain" }
+    ]
+  },
+  "query": "What time is my Acuity meeting and what's it about?",
+  "query_time": "10:00",
+  "reactive_expect": {
+    "title_contains": ["acuity", "series b", "narrative", "11:00"],
+    "sub_contains":   ["series b", "11:00", "review", "narrative"],
+    "src_in":         ["ask"],
+    "rel_in":         ["high", "med", "low"],
+    "must_not_be_degraded": true
+  }
+}

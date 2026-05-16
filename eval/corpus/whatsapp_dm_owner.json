@@ -1,0 +1,50 @@
+{
+  "kind": "reactive",
+  "today": "2026-05-06",
+  "expected_state": "morning_calm",
+  "user": {
+    "name": "Jamie",
+    "tz": "Europe/Athens"
+  },
+  "calendar": [
+    {
+      "uid": "evt-standup",
+      "start": "2026-05-06T10:00:00+03:00",
+      "end":   "2026-05-06T10:30:00+03:00",
+      "title": "Eng standup",
+      "tag":   "work"
+    },
+    {
+      "uid": "evt-design",
+      "start": "2026-05-06T15:00:00+03:00",
+      "end":   "2026-05-06T16:00:00+03:00",
+      "title": "Design review — onboarding",
+      "tag":   "work"
+    }
+  ],
+  "email_threads": [],
+  "whatsapp": {
+    "sender_name": "Jamie",
+    "is_dm":       true,
+    "is_mention":  false
+  },
+  "query": "what's on today?",
+  "query_time": "09:30",
+  "reactive_expect": {
+    "title_contains": ["standup", "design", "today"],
+    "sub_contains":   ["10:00", "15:00", "standup", "design"],
+    "src_in":         ["ask"],
+    "rel_in":         ["high", "med", "low"],
+    "speech_contains": ["10", "design"],
+    "speech_must_not_contain": [
+      "## ",
+      "### ",
+      "Synthesis",
+      "Summary:",
+      "- ",
+      "* ",
+      "Here's what I found"
+    ],
+    "must_not_be_degraded": true
+  }
+}

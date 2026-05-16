@@ -1,0 +1,104 @@
+{
+  "today": "2026-04-28",
+  "expected_state": "pre_meeting",
+  "synth_time": "10:00",
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-acuity",
+      "start": "2026-04-28T11:00:00-07:00",
+      "end":   "2026-04-28T11:45:00-07:00",
+      "title": "Acuity — Series B narrative review",
+      "tag":   "work",
+      "location": "Zoom",
+      "attendees": ["Saru Patel", "Lin Vega", "Park Choi"]
+    },
+    {
+      "uid": "evt-prep",
+      "start": "2026-04-28T10:00:00-07:00",
+      "end":   "2026-04-28T10:45:00-07:00",
+      "title": "Prep block — pricing slide & cohort table",
+      "tag":   "work",
+      "attendees": []
+    },
+    {
+      "uid": "evt-aria",
+      "start": "2026-04-28T13:30:00-07:00",
+      "end":   "2026-04-28T14:00:00-07:00",
+      "title": "Debrief — Aria",
+      "tag":   "work",
+      "attendees": ["Aria Senn"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "re: redline — option pool & 1x preferred",
+      "last_sender": "Saru Patel",
+      "last_received": "2026-04-28T06:14:00-07:00",
+      "message_count": 9,
+      "unread_count": 3,
+      "preview": "Walked the redline with Lin overnight. Two questions remain — option pool sizing and the 1x non-participating preferred. We need both answered before the 11:00."
+    },
+    {
+      "subject": "Cohort table for slide 14",
+      "last_sender": "Park Choi",
+      "last_received": "2026-04-28T05:40:00-07:00",
+      "message_count": 4,
+      "unread_count": 2,
+      "preview": "Updated cohort table is owed for the slide-14 deep dive. Park will pull the latest if we confirm the cutoff date by 09:30."
+    },
+    {
+      "subject": "Q2 OKR draft — for review when calmer",
+      "last_sender": "Mara Cole",
+      "last_received": "2026-04-27T18:11:00-07:00",
+      "message_count": 2,
+      "unread_count": 1,
+      "preview": "No rush — pinging this so it doesn't fall off after the Acuity push."
+    }
+  ],
+  "weather": {
+    "summary": "overcast, light wind",
+    "temp_now": 12,
+    "temp_high": 17,
+    "hours": [
+      { "h": "9",  "t": 12, "icon": "cloud" },
+      { "h": "11", "t": 14, "icon": "cloud" },
+      { "h": "13", "t": 16, "icon": "cloud" },
+      { "h": "15", "t": 17, "icon": "cloud" },
+      { "h": "17", "t": 16, "icon": "cloud" },
+      { "h": "19", "t": 14, "icon": "rain"  },
+      { "h": "21", "t": 13, "icon": "rain"  }
+    ]
+  },
+  "must_cards": [
+    {
+      "name": "Acuity Series B meeting",
+      "src": "calendar",
+      "title_contains": ["acuity", "series b"],
+      "sub_contains":   ["11:00", "saru", "lin", "park"]
+    },
+    {
+      "name": "Saru redline thread",
+      "src": "mail",
+      "title_contains": ["saru", "redline"],
+      "sub_contains":   ["option pool", "1x", "preferred"]
+    },
+    {
+      "name": "Cohort table owed",
+      "src": ["mail", "tasks"],
+      "title_contains": ["cohort", "slide"],
+      "sub_contains":   ["park", "cohort", "slide"]
+    }
+  ],
+  "must_cards_pre_meeting": [
+    {
+      "name": "Attendee context surfaced",
+      "src": "mail",
+      "title_contains": ["saru", "lin", "park"],
+      "sub_contains":   ["saru", "lin", "park", "11:00"]
+    }
+  ]
+}

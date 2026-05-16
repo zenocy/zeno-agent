@@ -1,0 +1,73 @@
+{
+  "kind": "reactive",
+  "today": "2026-04-28",
+  "expected_state": "morning_calm",
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-acuity",
+      "start": "2026-04-28T11:00:00-07:00",
+      "end":   "2026-04-28T11:45:00-07:00",
+      "title": "Acuity — Series B narrative review",
+      "tag":   "work",
+      "attendees": ["Saru Patel", "Lin Vega", "Park Choi"]
+    },
+    {
+      "uid": "evt-1on1",
+      "start": "2026-04-28T14:00:00-07:00",
+      "end":   "2026-04-28T14:30:00-07:00",
+      "title": "1:1 — Mara",
+      "tag":   "work",
+      "attendees": ["Mara Cole"]
+    }
+  ],
+  "email_threads": [],
+  "weather": {
+    "summary": "clear, light wind",
+    "temp_now": 13,
+    "temp_high": 19,
+    "hours": [
+      { "h": "9",  "t": 13, "icon": "sun"  },
+      { "h": "11", "t": 15, "icon": "sun"  },
+      { "h": "13", "t": 17, "icon": "sun"  },
+      { "h": "15", "t": 19, "icon": "cloud"},
+      { "h": "17", "t": 18, "icon": "cloud"},
+      { "h": "19", "t": 16, "icon": "rain" }
+    ]
+  },
+  "memory": [
+    {
+      "subject": "partner",
+      "fact": "Partner is Sam.",
+      "category": "relationship",
+      "confidence": "high",
+      "source": "user"
+    },
+    {
+      "subject": "anniversary",
+      "fact": "Anniversary is May 7.",
+      "category": "identity",
+      "confidence": "high",
+      "source": "user"
+    },
+    {
+      "subject": "dinner",
+      "fact": "Otto's is the special-occasion dinner spot.",
+      "category": "preference",
+      "confidence": "med",
+      "source": "synth"
+    }
+  ],
+  "query": "Should I block tonight for dinner?",
+  "query_time": "10:00",
+  "reactive_expect": {
+    "title_contains": ["dinner", "tonight", "block", "yes", "anniversary"],
+    "sub_contains":   ["sam", "anniversary", "may", "evening", "tonight"],
+    "src_in":         ["ask"],
+    "rel_in":         ["high", "med", "low"],
+    "must_not_be_degraded": true
+  }
+}

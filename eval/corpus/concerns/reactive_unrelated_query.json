@@ -1,0 +1,39 @@
+{
+  "kind": "reactive",
+  "today": "2026-04-28",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "calendar": [],
+  "email_threads": [
+    {
+      "subject": "Kitchen tile — vendor options",
+      "last_sender": "Hector Reyes",
+      "last_received": "2026-04-25T09:14:00-07:00",
+      "message_count": 3,
+      "unread_count": 0,
+      "preview": "Two ranges, ceramic and porcelain."
+    }
+  ],
+  "weather": {
+    "summary": "clear",
+    "temp_now": 12, "temp_high": 18,
+    "hours": [
+      { "h": "9",  "t": 12, "icon": "sun" },
+      { "h": "13", "t": 16, "icon": "sun" }
+    ]
+  },
+  "seed_concerns": [
+    {
+      "id": "c-construction",
+      "name": "Construction at the house",
+      "description": "Kitchen tile and the inspection are open beats.",
+      "state": "active",
+      "source": "user"
+    }
+  ],
+  "concern_query_tests": [
+    {
+      "query": "what's the weather tomorrow?",
+      "must_not_match_concern": true
+    }
+  ]
+}

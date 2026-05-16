@@ -1,0 +1,46 @@
+# Build output
+/zeno
+/zeno-*
+*.exe
+/dist/
+
+# Local data
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Local config (use config.example.yaml as template)
+/config.yaml
+/deploy/config.yaml
+
+# UI
+node_modules/
+/ui/dist/
+.vite/
+/ui/vite.config.d.ts
+/ui/vite.config.js
+/ui/tsconfig.node.tsbuildinfo
+/ui/tsconfig.tsbuildinfo
+
+# Embedded UI is a build artifact; only the placeholder index.html is tracked
+/cmd/zeno/ui-dist/assets/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Test artifacts
+/coverage.out
+/coverage.html
+
+# Bench output
+/benches/REPORT.md.local
+
+# Eval harness artifacts
+/eval-report.html
+
+# Local dev workspace (air rebuilds)
+/tmp/

@@ -1,0 +1,71 @@
+{
+  "kind": "concern_recognition",
+  "today": "2026-04-28",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "recognition_lookback_days": 21,
+  "recognition_daily_cap": 2,
+  "email_threads": [
+    {
+      "subject": "Kitchen tile — vendor options",
+      "last_sender": "Hector Reyes (contractor)",
+      "last_received": "2026-04-08T09:14:00-07:00",
+      "message_count": 3,
+      "unread_count": 0,
+      "preview": "Two ranges, ceramic and porcelain. Lead time on the porcelain is 11 days. Need a call by Friday."
+    },
+    {
+      "subject": "Drywall schedule slipping",
+      "last_sender": "Hector Reyes (contractor)",
+      "last_received": "2026-04-12T11:02:00-07:00",
+      "message_count": 5,
+      "unread_count": 0,
+      "preview": "Crew pushed by a day. New target Tuesday. Plumbing rough-in still on Friday."
+    },
+    {
+      "subject": "Architect invoice #4 — March milestones",
+      "last_sender": "Renata Mali (architect)",
+      "last_received": "2026-04-15T08:30:00-07:00",
+      "message_count": 2,
+      "unread_count": 0,
+      "preview": "March milestones invoiced. Permit revision the only outstanding item."
+    },
+    {
+      "subject": "Permit revision filed",
+      "last_sender": "Renata Mali (architect)",
+      "last_received": "2026-04-18T14:20:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "City accepted the rev. Inspection window opens Wednesday."
+    },
+    {
+      "subject": "Re: Kitchen tile — vendor options",
+      "last_sender": "Mira Voss",
+      "last_received": "2026-04-21T18:00:00-07:00",
+      "message_count": 4,
+      "unread_count": 0,
+      "preview": "Going with the porcelain. Ordered today."
+    },
+    {
+      "subject": "Inspector confirmed Wednesday",
+      "last_sender": "Hector Reyes (contractor)",
+      "last_received": "2026-04-25T10:11:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "10:00 Wednesday. He'll need access to the basement."
+    }
+  ],
+  "expected_concerns": [
+    {
+      "name": "Construction at the house",
+      "name_contains": ["construction", "house", "renovation", "kitchen"],
+      "observation_ids": [
+        "thread:Kitchen tile — vendor options",
+        "thread:Drywall schedule slipping",
+        "thread:Architect invoice #4 — March milestones",
+        "thread:Permit revision filed",
+        "thread:Re: Kitchen tile — vendor options",
+        "thread:Inspector confirmed Wednesday"
+      ]
+    }
+  ]
+}

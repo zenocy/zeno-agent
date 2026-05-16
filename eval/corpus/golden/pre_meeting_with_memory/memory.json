@@ -1,0 +1,23 @@
+[
+  {
+    "subject": "partner",
+    "fact": "Partner is Sam.",
+    "category": "relationship",
+    "confidence": "high",
+    "source": "user"
+  },
+  {
+    "subject": "child",
+    "fact": "Daughter Lia, school pickup is on Sam.",
+    "category": "relationship",
+    "confidence": "high",
+    "source": "user"
+  },
+  {
+    "subject": "anniversary",
+    "fact": "Anniversary is May 7.",
+    "category": "identity",
+    "confidence": "high",
+    "source": "user"
+  }
+]

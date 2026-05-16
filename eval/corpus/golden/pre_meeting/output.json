@@ -1,0 +1,112 @@
+{
+  "briefing": {
+    "date": "2026-04-28",
+    "eyebrow": "next event · in 11 minutes",
+    "title": "*Acuity Capital* — Series B narrative review.",
+    "summary": "Saru opens with the pricing slide and the preferred terms; Lin will press cohort retention. Two questions remain — option pool size, and the 1× non-participating preferred — and you need a position on both before the room convenes.",
+    "tension": 82,
+    "suggested_followup": "Draft the option pool answer for Saru"
+  },
+  "cards": {
+    "cards": [
+      {
+        "id": "saru-6f96",
+        "date": "2026-04-28",
+        "src": "mail",
+        "src_label": "Email · Acuity",
+        "rel": "high",
+        "kind": "",
+        "title": "Saru Patel · re: redline",
+        "sub": "Lin walked the redline. Two open questions remain — the option pool size, and the 1× non-participating preferred. You need a position on both before the 11:00 call.",
+        "meta": [
+          "06:14",
+          "·",
+          "1 msg"
+        ],
+        "actions": [
+          {
+            "label": "Reply to Saru",
+            "primary": true
+          },
+          {
+            "label": "Snooze"
+          }
+        ],
+        "trace_id": "d6564178-aed4-4eca-b712-ad5e82eec28b"
+      },
+      {
+        "id": "prep-4f8a",
+        "date": "2026-04-28",
+        "src": "calendar",
+        "src_label": "Calendar · 10:00",
+        "rel": "high",
+        "kind": "",
+        "title": "Prep block — pricing slide \u0026 cohort table",
+        "sub": "45 minutes to fix the pricing slide and the cohort table. Saru flagged the preferred terms; Park is waiting for the cutoff date.",
+        "meta": [
+          "10:00",
+          "·",
+          "45m"
+        ],
+        "actions": [
+          {
+            "label": "Open agenda",
+            "primary": true
+          },
+          {
+            "label": "Move"
+          }
+        ],
+        "trace_id": "d6564178-aed4-4eca-b712-ad5e82eec28b"
+      },
+      {
+        "id": "cohort-1962",
+        "date": "2026-04-28",
+        "src": "tasks",
+        "src_label": "Tasks · Cohort table",
+        "rel": "med",
+        "kind": "",
+        "title": "Cohort table — owed for slide 14",
+        "sub": "Park sent the table at 05:40. You owe a cutoff date by 09:30 so slide 14 lands in the 11:00 deck.",
+        "meta": [
+          "due 09:30"
+        ],
+        "actions": [
+          {
+            "label": "Confirm cutoff date",
+            "primary": true
+          },
+          {
+            "label": "Reply to Park"
+          }
+        ],
+        "trace_id": "d6564178-aed4-4eca-b712-ad5e82eec28b"
+      },
+      {
+        "id": "debrief-f6cf",
+        "date": "2026-04-28",
+        "src": "calendar",
+        "src_label": "Calendar · 13:30",
+        "rel": "med",
+        "kind": "",
+        "title": "Debrief — Aria",
+        "sub": "30 minutes after the Acuity call. Use the time to consolidate notes from the Series B narrative review.",
+        "meta": [
+          "13:30",
+          "·",
+          "30m"
+        ],
+        "actions": [
+          {
+            "label": "Open notes",
+            "primary": true
+          },
+          {
+            "label": "Move"
+          }
+        ],
+        "trace_id": "d6564178-aed4-4eca-b712-ad5e82eec28b"
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "kind": "concern_recognition",
+  "today": "2026-04-28",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "recognition_lookback_days": 21,
+  "recognition_daily_cap": 2,
+  "email_threads": [
+    {
+      "subject": "Receipt — Whole Foods",
+      "last_sender": "noreply@wholefoods",
+      "last_received": "2026-04-09T19:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "Receipt for $84.20."
+    },
+    {
+      "subject": "Your Stripe statement",
+      "last_sender": "Stripe",
+      "last_received": "2026-04-12T07:30:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "March statement available."
+    },
+    {
+      "subject": "Doctor's office — annual reminder",
+      "last_sender": "Bay Health",
+      "last_received": "2026-04-14T13:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Time to schedule your annual."
+    },
+    {
+      "subject": "Update on Lia's school musical",
+      "last_sender": "PTA",
+      "last_received": "2026-04-17T17:30:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Tickets on sale Friday."
+    },
+    {
+      "subject": "Lyft ride completed",
+      "last_sender": "Lyft",
+      "last_received": "2026-04-19T22:15:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "$22.40."
+    },
+    {
+      "subject": "Bay Bridge toll receipt",
+      "last_sender": "FasTrak",
+      "last_received": "2026-04-23T08:45:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "Two crossings; $14.00."
+    }
+  ],
+  "expected_concerns": []
+}

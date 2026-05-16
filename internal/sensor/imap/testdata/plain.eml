@@ -1,0 +1,8 @@
+From: alice@example.test
+To: bob@example.test
+Subject: Plain note
+Content-Type: text/plain; charset=utf-8
+
+Hey Bob — got the patch, will review tonight.
+
+— Alice

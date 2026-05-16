@@ -1,0 +1,90 @@
+{
+  "kind": "retrospective",
+  "today": "2026-04-28",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "retrospective_lookback_days": 90,
+  "seed_concerns": [
+    {
+      "id": "c-hiring",
+      "name": "Engineering lead hire",
+      "description": "Searching for a senior engineering lead.",
+      "state": "active",
+      "source": "user"
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "Owen Reid panel — three confirmed",
+      "last_sender": "Ashby (recruiter)",
+      "last_received": "2026-04-09T10:30:00-07:00",
+      "message_count": 3,
+      "unread_count": 0,
+      "preview": "Three of four panelists confirmed."
+    },
+    {
+      "subject": "Owen Reid — debrief notes",
+      "last_sender": "Saru Patel",
+      "last_received": "2026-04-15T17:00:00-07:00",
+      "message_count": 6,
+      "unread_count": 0,
+      "preview": "System design pass on judgment."
+    },
+    {
+      "subject": "Aisha Mukherjee — panel scheduling",
+      "last_sender": "Ashby (recruiter)",
+      "last_received": "2026-04-19T09:00:00-07:00",
+      "message_count": 4,
+      "unread_count": 0,
+      "preview": "Aisha available Tuesday 13:00."
+    },
+    {
+      "subject": "Aisha Mukherjee — debrief",
+      "last_sender": "Lin Vega",
+      "last_received": "2026-04-22T18:30:00-07:00",
+      "message_count": 5,
+      "unread_count": 0,
+      "preview": "Strong working session."
+    },
+    {
+      "subject": "Lin Vega — 1:1 notes",
+      "last_sender": "Lin Vega",
+      "last_received": "2026-04-10T16:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "Roadmap notes for Q2; team capacity update."
+    },
+    {
+      "subject": "Saru Patel — 1:1 notes",
+      "last_sender": "Saru Patel",
+      "last_received": "2026-04-13T16:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "Discussed Owen Reid feedback in passing; rest was infra debt."
+    },
+    {
+      "subject": "Lia's pickup logistics",
+      "last_sender": "Sam",
+      "last_received": "2026-04-16T08:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "Tuesday I'll handle pickup. Wednesday's still you."
+    },
+    {
+      "subject": "Owen vs Aisha — comp banding",
+      "last_sender": "Ashby (recruiter)",
+      "last_received": "2026-04-26T14:15:00-07:00",
+      "message_count": 2,
+      "unread_count": 0,
+      "preview": "Both candidates above target band."
+    }
+  ],
+  "expected_concern_tags": {
+    "c-hiring": [
+      "thread:Owen Reid panel — three confirmed",
+      "thread:Owen Reid — debrief notes",
+      "thread:Aisha Mukherjee — panel scheduling",
+      "thread:Aisha Mukherjee — debrief",
+      "thread:Owen vs Aisha — comp banding"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "state": "deep_work",
+  "must_cards": [
+    {
+      "name": "Protected-window framing",
+      "src": [
+        "tasks"
+      ],
+      "title_contains": [
+        "pricing",
+        "memo",
+        "hiring"
+      ],
+      "sub_contains": [
+        "block",
+        "window",
+        "until 14",
+        "until 15",
+        "deferred"
+      ]
+    }
+  ]
+}

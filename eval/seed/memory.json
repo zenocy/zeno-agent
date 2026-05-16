@@ -1,0 +1,37 @@
+[
+  {
+    "subject": "partner",
+    "fact": "Partner is Sam.",
+    "category": "relationship",
+    "confidence": "high",
+    "source": "user"
+  },
+  {
+    "subject": "child",
+    "fact": "Daughter Lia, school pickup is on Sam.",
+    "category": "relationship",
+    "confidence": "high",
+    "source": "user"
+  },
+  {
+    "subject": "runs",
+    "fact": "Usually runs Tue/Thu mornings; aims for 3x/week.",
+    "category": "routine",
+    "confidence": "med",
+    "source": "synth"
+  },
+  {
+    "subject": "anniversary",
+    "fact": "Anniversary is May 7.",
+    "category": "identity",
+    "confidence": "high",
+    "source": "user"
+  },
+  {
+    "subject": "dinner",
+    "fact": "Otto's is the special-occasion dinner spot.",
+    "category": "preference",
+    "confidence": "low",
+    "source": "synth"
+  }
+]

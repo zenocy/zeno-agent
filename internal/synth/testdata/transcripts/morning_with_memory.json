@@ -1,0 +1,14 @@
+[
+  {
+    "req_match": "Synthesize today's cards",
+    "resp": {
+      "content": "thought: today is light on tools — go straight to cards\nremember: commute: cycles to office when dry\n{\n  \"cards\": [\n    {\n      \"id\": \"saru\",\n      \"date\": \"2026-04-25\",\n      \"src\": \"mail\",\n      \"src_label\": \"Email · Acuity\",\n      \"rel\": \"high\",\n      \"kind\": \"\",\n      \"title\": \"Saru Patel · re: redline\",\n      \"sub\": \"Walked the redline with Lin. Two questions remain — option pool, and the 1× non-participating preferred.\",\n      \"meta\": [\"06:14\", \"·\", \"thread of 1\"],\n      \"actions\": [{\"label\": \"Draft a reply\", \"primary\": true}, {\"label\": \"Snooze\"}]\n    },\n    {\n      \"id\": \"acuity\",\n      \"date\": \"2026-04-25\",\n      \"src\": \"calendar\",\n      \"src_label\": \"Calendar · 11:00\",\n      \"rel\": \"high\",\n      \"kind\": \"\",\n      \"title\": \"Acuity — *Series B* narrative review\",\n      \"sub\": \"45 minutes with Saru, Lin, and Park. The cohort table for slide 14 is still owed.\",\n      \"meta\": [\"11:00\", \"·\", \"45m · Zoom\"],\n      \"actions\": [{\"label\": \"Open agenda\", \"primary\": true}]\n    }\n  ]\n}"
+    }
+  },
+  {
+    "req_match": "Render the briefing",
+    "resp": {
+      "content": "{\"date\":\"2026-04-25\",\"eyebrow\":\"this morning · 2 things worth knowing\",\"title\":\"A calm start. *One* thing wants you before noon.\",\"summary\":\"Series B review at 11. Sam handles the afternoon — the day breathes around it.\",\"tension\":38}"
+    }
+  }
+]

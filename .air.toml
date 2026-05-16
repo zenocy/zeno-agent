@@ -1,0 +1,21 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd        = "go build -o ./tmp/zeno ./cmd/zeno"
+  bin        = "./tmp/zeno"
+  full_bin   = "./tmp/zeno -config deploy/config.yaml -db ./data/zeno.db"
+  include_ext = ["go"]
+  include_dir = ["cmd", "internal"]
+  exclude_dir = ["ui", "tmp", "deploy", "benches", "doc", "prompts"]
+  delay      = 500
+
+[log]
+  time = false
+
+[color]
+  build  = "yellow"
+  runner = "green"
+
+[misc]
+  clean_on_exit = true

@@ -1,0 +1,61 @@
+{
+  "calmness": {
+    "dimension": "calmness",
+    "value": 3
+  },
+  "decisiveness": {
+    "dimension": "decisiveness",
+    "value": 3
+  },
+  "concreteness": {
+    "dimension": "concreteness",
+    "value": 0
+  },
+  "memory_grounding": {
+    "opener_tells": {
+      "dimension": "memory_opener_tells",
+      "value": 3
+    },
+    "fact_density": {
+      "dimension": "memory_fact_density",
+      "value": 3
+    },
+    "verbatim_leak": {
+      "dimension": "memory_verbatim_leak",
+      "value": 3
+    },
+    "with_vs_empty": {
+      "dimension": "memory_with_vs_empty",
+      "value": -1
+    },
+    "facts_injected": 0
+  },
+  "state_match": {
+    "expected": "end_of_day",
+    "actual": "morning_calm",
+    "ok": false
+  },
+  "tension_in_band": {
+    "state": "morning_calm",
+    "tension": 0,
+    "low": 25,
+    "high": 45,
+    "ok": false,
+    "gated": true
+  },
+  "briefing_schema_ok": false,
+  "cards_schema_ok": false,
+  "briefing_schema_err": "jsonschema: '/summary' does not validate with file:///workspace/briefing.json#/properties/summary/minLength: length must be \u003e= 20, but got 0",
+  "cards_schema_err": "jsonschema: '/cards' does not validate with file:///workspace/cards.json#/properties/cards/minItems: minimum 2 items required, but found 0 items",
+  "must_cards": [
+    false,
+    false,
+    false
+  ],
+  "must_card_labels": [
+    "Q1 retro — pricing v2 (anchor)",
+    "Lia bedtime story (personal)",
+    "Personal card ahead of incremental work [end_of_day]"
+  ],
+  "italic_balanced": true
+}

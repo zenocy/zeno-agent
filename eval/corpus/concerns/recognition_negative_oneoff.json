@@ -1,0 +1,18 @@
+{
+  "kind": "concern_recognition",
+  "today": "2026-04-28",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "recognition_lookback_days": 21,
+  "recognition_daily_cap": 2,
+  "email_threads": [
+    {
+      "subject": "Quick question about the pitch deck",
+      "last_sender": "Saru Patel",
+      "last_received": "2026-04-26T10:00:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Should slide 14 use Q1 ARR or trailing 12? Five-minute response is fine."
+    }
+  ],
+  "expected_concerns": []
+}

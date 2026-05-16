@@ -1,0 +1,128 @@
+{
+  "today": "2026-04-28",
+  "expected_state": "morning_calm",
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-1",
+      "start": "2026-04-28T11:00:00-07:00",
+      "end":   "2026-04-28T11:45:00-07:00",
+      "title": "Acuity — Series B narrative review",
+      "tag":   "work",
+      "attendees": ["Saru Patel", "Lin Vega", "Park Choi"]
+    },
+    {
+      "uid": "evt-2",
+      "start": "2026-04-28T14:00:00-07:00",
+      "end":   "2026-04-28T14:30:00-07:00",
+      "title": "1:1 — Mara",
+      "tag":   "work",
+      "attendees": ["Mara Cole"]
+    },
+    {
+      "uid": "evt-3",
+      "start": "2026-04-28T15:30:00-07:00",
+      "end":   "2026-04-28T15:30:00-07:00",
+      "title": "Lia's pickup (Sam)",
+      "tag":   "personal",
+      "attendees": ["Sam"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "re: redline",
+      "last_sender": "Saru Patel",
+      "last_received": "2026-04-28T06:14:00-07:00",
+      "message_count": 7,
+      "unread_count": 2,
+      "preview": "Walked the redline with Lin. Two questions remain — option pool, and the 1x non-participating preferred."
+    },
+    {
+      "subject": "Owen Reid panel",
+      "last_sender": "Ashby",
+      "last_received": "2026-04-28T05:30:00-07:00",
+      "message_count": 3,
+      "unread_count": 1,
+      "preview": "Three of four panelists confirmed. Hold expires today at 17:00."
+    }
+  ],
+  "weather": {
+    "summary": "clear, light wind",
+    "temp_now": 13,
+    "temp_high": 19,
+    "hours": [
+      { "h": "9",  "t": 13, "icon": "sun"  },
+      { "h": "11", "t": 15, "icon": "sun"  },
+      { "h": "13", "t": 17, "icon": "sun"  },
+      { "h": "15", "t": 19, "icon": "cloud"},
+      { "h": "17", "t": 18, "icon": "cloud"},
+      { "h": "19", "t": 16, "icon": "rain" },
+      { "h": "21", "t": 14, "icon": "rain" }
+    ]
+  },
+  "run_window": {
+    "start": "2026-04-28T12:30:00-07:00",
+    "end":   "2026-04-28T13:30:00-07:00",
+    "condition": "clear, 16°"
+  },
+  "memory": [
+    {
+      "subject": "partner",
+      "fact": "Partner is Sam.",
+      "category": "relationship",
+      "confidence": "high",
+      "source": "user"
+    },
+    {
+      "subject": "child",
+      "fact": "Daughter Lia, school pickup is on Sam.",
+      "category": "relationship",
+      "confidence": "high",
+      "source": "user"
+    },
+    {
+      "subject": "runs",
+      "fact": "Usually runs Tue/Thu mornings; aims for 3x/week.",
+      "category": "routine",
+      "confidence": "med",
+      "source": "synth"
+    },
+    {
+      "subject": "anniversary",
+      "fact": "Anniversary is May 7.",
+      "category": "identity",
+      "confidence": "high",
+      "source": "user"
+    },
+    {
+      "subject": "dinner",
+      "fact": "Otto's is the special-occasion dinner spot.",
+      "category": "preference",
+      "confidence": "low",
+      "source": "synth"
+    }
+  ],
+  "must_cards": [
+    {
+      "name": "Saru redline thread",
+      "src": "mail",
+      "title_contains": ["saru", "redline"],
+      "sub_contains":   ["redline", "option pool"]
+    },
+    {
+      "name": "Owen Reid panel",
+      "src": ["mail", "tasks"],
+      "title_contains": ["owen", "panel"],
+      "sub_contains":   ["panelist", "17:00", "hold"]
+    },
+    {
+      "name": "Acuity Series B meeting",
+      "src": "calendar",
+      "title_contains": ["acuity", "series b"],
+      "sub_contains":   []
+    }
+  ]
+}

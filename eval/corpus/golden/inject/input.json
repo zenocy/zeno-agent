@@ -1,0 +1,112 @@
+{
+  "today": "2026-04-30",
+  "expected_state": "message_inject",
+  "synth_time": "10:00",
+  "inject_signal": {
+    "kind": "email",
+    "subject": "Saru Patel — re: redline"
+  },
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-prep",
+      "start": "2026-04-30T10:00:00-07:00",
+      "end":   "2026-04-30T10:45:00-07:00",
+      "title": "Acuity prep — pricing slide review",
+      "tag":   "work",
+      "attendees": ["Lin Vega"]
+    },
+    {
+      "uid": "evt-review",
+      "start": "2026-04-30T11:00:00-07:00",
+      "end":   "2026-04-30T12:00:00-07:00",
+      "title": "Acuity — Series B review (board)",
+      "tag":   "work",
+      "attendees": ["Saru Patel", "Lin Vega", "Park Choi"]
+    },
+    {
+      "uid": "evt-pickup",
+      "start": "2026-04-30T15:30:00-07:00",
+      "end":   "2026-04-30T15:30:00-07:00",
+      "title": "Lia's pickup (Sam)",
+      "tag":   "personal",
+      "attendees": ["Sam"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "Board call moved to 10:30",
+      "last_sender": "Saru Patel",
+      "last_received": "2026-04-30T09:14:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Need a redline answer by 10:30. Board call moved up. Confirm option-pool and 1x non-participating preferred before we walk it through Lin and Park."
+    },
+    {
+      "subject": "re: Cohort table for slide 14",
+      "last_sender": "Park Choi",
+      "last_received": "2026-04-30T07:48:00-07:00",
+      "message_count": 4,
+      "unread_count": 1,
+      "preview": "Updated cohort tab attached. Two metrics still blank — net dollar retention and the 12-month cohort. Can we pencil them in before the 11:00?"
+    },
+    {
+      "subject": "Newsletter digest — Stripe Atlas",
+      "last_sender": "Stripe Atlas",
+      "last_received": "2026-04-30T05:30:00-07:00",
+      "message_count": 1,
+      "unread_count": 1,
+      "preview": "Routine quarterly digest."
+    }
+  ],
+  "weather": {
+    "summary": "clear, mild",
+    "temp_now": 14,
+    "temp_high": 21,
+    "hours": [
+      { "h": "9",  "t": 14, "icon": "sun"  },
+      { "h": "11", "t": 17, "icon": "sun"  },
+      { "h": "13", "t": 20, "icon": "sun"  },
+      { "h": "15", "t": 21, "icon": "cloud"},
+      { "h": "17", "t": 19, "icon": "cloud"},
+      { "h": "19", "t": 16, "icon": "cloud"},
+      { "h": "21", "t": 14, "icon": "cloud"}
+    ]
+  },
+  "run_window": {
+    "start": "2026-04-30T13:00:00-07:00",
+    "end":   "2026-04-30T13:45:00-07:00",
+    "condition": "clear, 19°"
+  },
+  "must_cards": [
+    {
+      "name": "Saru — board call moved to 10:30 (inject)",
+      "src": "mail",
+      "title_contains": ["saru", "board", "10:30", "redline"],
+      "sub_contains":   ["10:30", "redline", "option pool", "before"]
+    },
+    {
+      "name": "Cohort table — owed before 11:00",
+      "src": ["mail", "tasks"],
+      "title_contains": ["cohort", "park", "slide"],
+      "sub_contains":   ["11:00", "cohort", "slide"]
+    },
+    {
+      "name": "Acuity Series B review (anchor)",
+      "src": "calendar",
+      "title_contains": ["acuity", "series b", "review"],
+      "sub_contains":   ["11:00", "saru", "lin", "park"]
+    }
+  ],
+  "must_cards_message_inject": [
+    {
+      "name": "Inject names the signal subject",
+      "src": "mail",
+      "title_contains": ["saru", "redline", "board"],
+      "sub_contains":   ["10:30", "redline", "before", "option pool"]
+    }
+  ]
+}

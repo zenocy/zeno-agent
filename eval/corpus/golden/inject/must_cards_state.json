@@ -1,0 +1,22 @@
+{
+  "state": "message_inject",
+  "must_cards": [
+    {
+      "name": "Inject names the signal subject",
+      "src": [
+        "mail"
+      ],
+      "title_contains": [
+        "saru",
+        "redline",
+        "board"
+      ],
+      "sub_contains": [
+        "10:30",
+        "redline",
+        "before",
+        "option pool"
+      ]
+    }
+  ]
+}

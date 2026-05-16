@@ -1,0 +1,44 @@
+{
+  "kind": "reactive",
+  "today": "2026-05-06",
+  "expected_state": "morning_calm",
+  "user": {
+    "name": "Jamie",
+    "tz": "Europe/Athens"
+  },
+  "calendar": [
+    {
+      "uid": "evt-crew-dinner",
+      "start": "2026-05-06T20:30:00+03:00",
+      "end":   "2026-05-06T22:00:00+03:00",
+      "title": "Crew dinner — Petralona",
+      "location": "Petralona, Athens",
+      "tag":   "personal"
+    }
+  ],
+  "email_threads": [],
+  "whatsapp": {
+    "sender_name": "Bob",
+    "group_name":  "Crew",
+    "is_dm":       false,
+    "is_mention":  true
+  },
+  "query": "@zeno when do we meet tonight?",
+  "query_time": "16:00",
+  "reactive_expect": {
+    "title_contains": ["dinner", "crew", "20:30", "tonight"],
+    "sub_contains":   ["20:30", "petralona", "dinner"],
+    "src_in":         ["ask"],
+    "rel_in":         ["high", "med"],
+    "speech_contains": ["20:30", "8:30"],
+    "speech_must_not_contain": [
+      "## ",
+      "### ",
+      "Synthesis",
+      "Summary:",
+      "- ",
+      "* "
+    ],
+    "must_not_be_degraded": true
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "today": "2026-04-28",
+  "expected_state": "pre_meeting",
+  "synth_time": "10:30",
+  "user": { "name": "Mira Voss", "tz": "America/Los_Angeles" },
+  "calendar": [
+    {
+      "uid": "evt-frankfurt-prep",
+      "start": "2026-04-28T11:00:00-07:00",
+      "end":   "2026-04-28T11:45:00-07:00",
+      "title": "Frankfurt agenda — Heim review",
+      "tag":   "work",
+      "attendees": ["Lukas Heim", "Saru Patel"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "Frankfurt — flights confirmed (June 14)",
+      "last_sender": "Lukas Heim",
+      "last_received": "2026-04-27T13:14:00-07:00",
+      "message_count": 4,
+      "unread_count": 1,
+      "preview": "Booking is in. Hotel hold expires Friday. Agenda still firming."
+    },
+    {
+      "subject": "Cohort table for slide 14",
+      "last_sender": "Park Choi",
+      "last_received": "2026-04-28T07:40:00-07:00",
+      "message_count": 2,
+      "unread_count": 1,
+      "preview": "Updated cohort table is owed for the slide-14 deep dive."
+    }
+  ],
+  "weather": {
+    "summary": "clear, light wind",
+    "temp_now": 14, "temp_high": 19,
+    "hours": [
+      { "h": "11", "t": 15, "icon": "sun" },
+      { "h": "13", "t": 17, "icon": "sun" },
+      { "h": "15", "t": 19, "icon": "cloud" }
+    ]
+  },
+  "seed_concerns": [
+    {
+      "id": "c-frankfurt",
+      "name": "Frankfurt trip",
+      "description": "Mid-June review with Heim — flights and hotel held, agenda still firming.",
+      "state": "active",
+      "source": "user"
+    }
+  ],
+  "must_cards_pre_meeting": [
+    {
+      "name": "Frankfurt agenda meeting prep",
+      "src": ["mail", "cal"],
+      "title_contains": ["frankfurt", "heim", "agenda"],
+      "sub_contains": ["agenda", "heim", "lukas"]
+    }
+  ]
+}

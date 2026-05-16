@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.7
+#
+# Alpine runtime variant — same binary as Dockerfile, but ships with a shell
+# for ad-hoc inspection. Use only for debugging.
+
+FROM node:22-alpine AS ui
+WORKDIR /src
+COPY ui/package.json ui/package-lock.json* ./
+RUN npm ci
+COPY ui/ ./
+RUN mkdir -p /out/cmd/zeno && cp -r . /out/ui && cd /out/ui && npm run build
+
+FROM golang:1.26-alpine AS build
+RUN apk add --no-cache build-base
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=ui /out/cmd/zeno/ui-dist ./cmd/zeno/ui-dist
+ARG VERSION=dev
+RUN CGO_ENABLED=1 go build \
+    -ldflags="-X github.com/zenocy/zeno-v2/internal/http/api.Version=${VERSION}" \
+    -o /out/zeno ./cmd/zeno
+
+FROM alpine:3.20 AS runtime
+RUN apk add --no-cache ca-certificates sqlite tzdata
+WORKDIR /app
+COPY --from=build /out/zeno /app/zeno
+ENV ZENO_DB_PATH=/data/zeno.db
+EXPOSE 7777
+VOLUME ["/data"]
+ENTRYPOINT ["/app/zeno", "-config", "/config.yaml"]

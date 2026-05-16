@@ -1,0 +1,27 @@
+{
+  "card": {
+    "id": "clear-4229",
+    "date": "2026-04-28",
+    "src": "ask",
+    "src_label": "Generated",
+    "rel": "high",
+    "kind": "",
+    "title": "Clear the redline first",
+    "sub": "Saru’s note arrived at 06:14. She needs your read on the option pool and preferreds before the Series B review. You have the morning to write it. Reply *now* so the meeting doesn't stall.",
+    "meta": [],
+    "actions": [
+      {
+        "label": "Dismiss"
+      }
+    ]
+  },
+  "degraded": false,
+  "expect_hits": {
+    "title": true,
+    "sub": true,
+    "src": true,
+    "rel": true,
+    "not_degraded": true
+  },
+  "query": "Should I reply to Saru before the 11:00 meeting or wait?"
+}

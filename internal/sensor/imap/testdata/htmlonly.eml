@@ -1,0 +1,7 @@
+From: eve@example.test
+To: frank@example.test
+Subject: HTML-only note
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Reminder: <b>standup at 09:30</b>.</p></body></html>

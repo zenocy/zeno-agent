@@ -1,0 +1,58 @@
+{
+  "today": "2026-05-05",
+  "expected_state": "message_inject",
+  "synth_time": "10:00",
+  "inject_signal": {
+    "kind": "stock_breach",
+    "subject": "AAPL +5.25%",
+    "evidence_id": "stock-alert-aapl"
+  },
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-standup",
+      "start": "2026-05-05T09:00:00-07:00",
+      "end":   "2026-05-05T09:15:00-07:00",
+      "title": "Eng standup",
+      "tag":   "work",
+      "attendees": ["Lin Vega", "Park Choi"]
+    }
+  ],
+  "email_threads": [],
+  "stock_snapshots": [
+    {
+      "ticker": "AAPL",
+      "price": 210.5,
+      "prev_close": 200.0,
+      "open": 199.8,
+      "day_high": 211.4,
+      "day_low": 199.0,
+      "change_pct": 5.25,
+      "currency": "USD",
+      "minutes_ago": 1
+    }
+  ],
+  "stock_alerts": [
+    {
+      "evidence_id": "stock-alert-aapl",
+      "ticker": "AAPL",
+      "price": 210.5,
+      "prev_close": 200.0,
+      "change_pct": 5.25,
+      "threshold_pct": 3.0,
+      "currency": "USD",
+      "minutes_ago": 2
+    }
+  ],
+  "must_cards_message_inject": [
+    {
+      "name": "AAPL stock breach inject",
+      "src": "markets",
+      "title_contains": ["aapl"],
+      "sub_contains":   ["210", "5.2", "200"]
+    }
+  ]
+}

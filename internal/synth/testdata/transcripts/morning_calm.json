@@ -1,0 +1,31 @@
+[
+  {
+    "req_match": "Synthesize today's cards",
+    "resp": {
+      "content": "thought: pulling the redline thread for one-line context",
+      "tool_calls": [
+        {"id": "tc-1", "name": "read_thread", "arguments": {"subject_hint": "redline"}}
+      ]
+    }
+  },
+  {
+    "req_match": "Walked the redline",
+    "resp": {
+      "tool_calls": [
+        {"id": "tc-2", "name": "read_weather_window", "arguments": {"start_iso": "2026-04-25T12:00:00Z", "end_iso": "2026-04-25T13:30:00Z"}}
+      ]
+    }
+  },
+  {
+    "req_match": "Window:",
+    "resp": {
+      "content": "{\n  \"cards\": [\n    {\n      \"id\": \"saru\",\n      \"date\": \"2026-04-25\",\n      \"src\": \"mail\",\n      \"src_label\": \"Email · Acuity\",\n      \"rel\": \"high\",\n      \"kind\": \"\",\n      \"title\": \"Saru Patel · re: redline\",\n      \"sub\": \"Walked the redline with Lin. Two questions remain — option pool, and the 1× non-participating preferred.\",\n      \"meta\": [\"06:14\", \"·\", \"thread of 1\"],\n      \"actions\": [{\"label\": \"Draft a reply\", \"primary\": true}, {\"label\": \"Snooze\"}]\n    },\n    {\n      \"id\": \"run\",\n      \"date\": \"2026-04-25\",\n      \"src\": \"personal\",\n      \"src_label\": \"Health · Strava\",\n      \"rel\": \"low\",\n      \"kind\": \"personal\",\n      \"title\": \"Your run window is open 12:00–13:30\",\n      \"sub\": \"Forecast says clear. Aria moved lunch — the slot is yours.\",\n      \"meta\": [\"weather: clear · 16°\"],\n      \"actions\": [{\"label\": \"Block it\", \"primary\": true}, {\"label\": \"Suggest tomorrow\"}]\n    }\n  ]\n}"
+    }
+  },
+  {
+    "req_match": "Render the briefing",
+    "resp": {
+      "content": "{\"date\":\"2026-04-25\",\"eyebrow\":\"this morning · 2 things worth knowing\",\"title\":\"A calm start. *One* thing wants you before noon.\",\"summary\":\"Series B review at 11. Otherwise the day breathes — your run window is wide open at lunch.\",\"tension\":38}"
+    }
+  }
+]

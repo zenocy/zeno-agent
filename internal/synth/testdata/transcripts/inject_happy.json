@@ -1,0 +1,14 @@
+[
+  {
+    "req_match": "A high-signal mid-day event arrived",
+    "resp": {
+      "content": "{\n  \"cards\": [\n    {\n      \"id\": \"saru\",\n      \"date\": \"2026-04-30\",\n      \"src\": \"mail\",\n      \"src_label\": \"Email · Acuity\",\n      \"rel\": \"high\",\n      \"kind\": \"\",\n      \"title\": \"Saru Patel — board call moved to 10:30 (urgent)\",\n      \"sub\": \"Saru needs a redline answer by 10:30. Confirm option-pool and the 1× non-participating preferred before walking through Lin and Park.\",\n      \"meta\": [\"10:30\", \"·\", \"redline\"],\n      \"actions\": [{\"label\": \"Draft a reply\", \"primary\": true}, {\"label\": \"Snooze\"}]\n    }\n  ]\n}"
+    }
+  },
+  {
+    "req_match": "Render the briefing",
+    "resp": {
+      "content": "{\"date\":\"2026-04-30\",\"eyebrow\":\"one priority signal\",\"title\":\"Saru moved the board call to *10:30*.\",\"summary\":\"Redline answer needed before 10:30. Confirm option-pool and the 1× non-participating preferred — that's the call.\",\"tension\":85}"
+    }
+  }
+]

@@ -1,0 +1,92 @@
+{
+  "today": "2026-05-01",
+  "expected_state": "end_of_day",
+  "synth_time": "14:00",
+  "user": {
+    "name": "Mira Voss",
+    "tz": "America/Los_Angeles"
+  },
+  "calendar": [
+    {
+      "uid": "evt-standup",
+      "start": "2026-05-01T09:00:00-07:00",
+      "end":   "2026-05-01T09:15:00-07:00",
+      "title": "Eng standup (async — done)",
+      "tag":   "work",
+      "attendees": []
+    },
+    {
+      "uid": "evt-bedtime",
+      "start": "2026-05-01T19:00:00-07:00",
+      "end":   "2026-05-01T19:30:00-07:00",
+      "title": "Lia bedtime story (your turn)",
+      "tag":   "personal",
+      "attendees": ["Lia"]
+    }
+  ],
+  "email_threads": [
+    {
+      "subject": "OKR digest — week 18",
+      "last_sender": "OKR Bot",
+      "last_received": "2026-05-01T05:14:00-07:00",
+      "message_count": 1,
+      "unread_count": 0,
+      "preview": "All Q2 OKRs on track. No blockers reported by team leads."
+    }
+  ],
+  "open_tasks": [
+    {
+      "title": "Pricing v2 memo — final draft",
+      "completed": true,
+      "done_date": "2026-05-01",
+      "priority": "high",
+      "tags": ["work", "pricing"]
+    },
+    {
+      "title": "Reply to legal review of redline",
+      "due_date": "2026-05-01",
+      "priority": "high",
+      "tags": ["work", "legal"]
+    },
+    {
+      "title": "Schedule dentist follow-up",
+      "priority": "low",
+      "tags": ["personal"]
+    }
+  ],
+  "weather": {
+    "summary": "clear, mild evening",
+    "temp_now": 17,
+    "temp_high": 22,
+    "hours": [
+      { "h": "9",  "t": 17, "icon": "sun"  },
+      { "h": "11", "t": 20, "icon": "sun"  },
+      { "h": "13", "t": 22, "icon": "cloud"},
+      { "h": "15", "t": 21, "icon": "cloud"},
+      { "h": "17", "t": 19, "icon": "cloud"},
+      { "h": "19", "t": 16, "icon": "cloud"},
+      { "h": "21", "t": 14, "icon": "cloud"}
+    ]
+  },
+  "run_window": {
+    "start": "2026-05-01T11:30:00-07:00",
+    "end":   "2026-05-01T12:30:00-07:00",
+    "condition": "clear, 21°"
+  },
+  "must_cards": [
+    {
+      "name": "Lia bedtime story (personal)",
+      "src": "personal",
+      "title_contains": ["lia", "bedtime"],
+      "sub_contains":   ["19:00", "your turn", "lia"]
+    }
+  ],
+  "must_cards_end_of_day": [
+    {
+      "name": "Names a slipped or pending task by subject",
+      "src": ["tasks", "mail", "personal"],
+      "title_contains": ["legal", "redline", "pricing"],
+      "sub_contains":   ["legal", "redline", "memo", "pricing", "owe", "still"]
+    }
+  ]
+}

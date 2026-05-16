@@ -1,0 +1,14 @@
+[
+  {
+    "req_match": "Synthesize today's cards",
+    "resp": {
+      "content": "{\n  \"cards\": [\n    {\n      \"id\": \"redline-block\",\n      \"date\": \"2026-04-27\",\n      \"src\": \"personal\",\n      \"src_label\": \"Focus\",\n      \"rel\": \"high\",\n      \"kind\": \"\",\n      \"title\": \"The redline thread is the *one* thing.\",\n      \"sub\": \"Three protected hours. Hold pings until 13:00.\",\n      \"meta\": [\"10:00–13:00\"],\n      \"actions\": [{\"label\": \"Mute\", \"primary\": true}]\n    },\n    {\n      \"id\": \"hold-pings\",\n      \"date\": \"2026-04-27\",\n      \"src\": \"personal\",\n      \"src_label\": \"Focus\",\n      \"rel\": \"med\",\n      \"kind\": \"\",\n      \"title\": \"Inbox closed until *13:00*.\",\n      \"sub\": \"Surface only what blocks the redline.\",\n      \"meta\": [\"focus\"],\n      \"actions\": [{\"label\": \"Snooze\"}]\n    }\n  ]\n}"
+    }
+  },
+  {
+    "req_match": "Render the briefing",
+    "resp": {
+      "content": "{\"date\":\"2026-04-27\",\"eyebrow\":\"protected\",\"title\":\"Three hours, *unbooked*.\",\"summary\":\"Hold pings. The redline answer wants you before lunch.\",\"tension\":20}"
+    }
+  }
+]

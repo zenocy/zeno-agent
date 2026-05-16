@@ -1,0 +1,166 @@
+package synth
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+
+	"github.com/zenocy/zeno-v2/internal/llm"
+	zlog "github.com/zenocy/zeno-v2/internal/log"
+	"github.com/zenocy/zeno-v2/internal/projection"
+)
+
+// slowLLMServer hangs every chat completion past the test deadline so the
+// loop's context-with-timeout fires and returns to Ask, which must then
+// surface a degraded card rather than an error.
+func slowLLMServer(t *testing.T, hold time.Duration) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(hold):
+			http.Error(w, "should not reach here in this test", http.StatusInternalServerError)
+		case <-r.Context().Done():
+			// Client cancelled (the loop's deadline fired). End cleanly.
+			return
+		}
+	}))
+}
+
+func TestAsk_DeadlineReturnsDegradedCard(t *testing.T) {
+	srv := slowLLMServer(t, 500*time.Millisecond)
+	defer srv.Close()
+
+	dbPath := t.TempDir() + "/zeno.db"
+	_, lstore, err := zlog.Open(dbPath)
+	require.NoError(t, err)
+
+	prompts, err := LoadPrompts("")
+	require.NoError(t, err)
+
+	logger := logrus.New()
+	logger.Out = io.Discard
+
+	llmClient := llm.NewClient(llm.ClientConfig{
+		Endpoint: srv.URL,
+		Model:    "test",
+		Timeout:  10 * time.Second,
+	})
+
+	deps := ReactiveDeps{
+		LLM:     llmClient,
+		Reader:  lstore,
+		ProjCfg: projection.Config{TZ: time.UTC},
+		Prompts: prompts,
+		Date:    "2026-04-25",
+		Now:     time.Now(),
+		// Force the loop to time out almost immediately.
+		Deadline: 50 * time.Millisecond,
+		Logger:   logger.WithField("c", "reactive-test"),
+	}
+
+	start := time.Now()
+	card, _, _, err := Ask(context.Background(), deps, "what's the weather today?")
+	elapsed := time.Since(start)
+
+	// Ask must never bubble an error to the caller — the UI relies on this.
+	require.NoError(t, err, "Ask should swallow timeouts and return a degraded card")
+
+	// And it must return well before the upstream `hold` would have completed.
+	require.Less(t, elapsed, 2*time.Second, "Ask should honor the loop deadline, not wait on slow LLM")
+
+	// Shape: degraded card per degradedCard().
+	require.Equal(t, "ask", card.Source)
+	require.Equal(t, "Generated", card.SrcLabel)
+	require.Equal(t, "low", card.Rel)
+	require.Equal(t, "2026-04-25", card.Date)
+	require.NotEmpty(t, card.ID, "degraded card must have a slug ID")
+	require.NotEmpty(t, card.Title)
+	require.NotEmpty(t, card.Actions, "degraded card must include at least Dismiss")
+}
+
+// TestAsk_OversizedSubPassesThrough pins the post-incident behavior:
+// a `sub` longer than the prompt's 400-char budget is no longer a
+// validation error. The model's answer surfaces as-is — no repair LLM
+// round-trip, no degraded card. Guards against future re-tightening of
+// the schema that would silently revert this.
+func TestAsk_OversizedSubPassesThrough(t *testing.T) {
+	const oversizeRunes = 470
+	longSub := strings.Repeat("a", oversizeRunes)
+
+	cardJSON, err := json.Marshal(Card{
+		ID:       "generated-x8k2",
+		Date:     "2026-05-06",
+		Source:   "ask",
+		SrcLabel: "Generated",
+		Rel:      "med",
+		Title:    "Tile quantities confirmed",
+		Sub:      longSub,
+		Meta:     []string{},
+		Actions:  []Action{{Label: "Dismiss"}},
+	})
+	require.NoError(t, err)
+
+	var calls int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt64(&calls, 1)
+		resp := map[string]any{
+			"id": "t", "object": "chat.completion", "model": "qwen3-test",
+			"choices": []map[string]any{{
+				"index":         0,
+				"message":       map[string]any{"role": "assistant", "content": string(cardJSON)},
+				"finish_reason": "stop",
+			}},
+			"usage": map[string]int{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	dbPath := t.TempDir() + "/zeno.db"
+	_, lstore, err := zlog.Open(dbPath)
+	require.NoError(t, err)
+
+	prompts, err := LoadPrompts("")
+	require.NoError(t, err)
+
+	logger := logrus.New()
+	logger.Out = io.Discard
+
+	llmClient := llm.NewClient(llm.ClientConfig{
+		Endpoint: srv.URL,
+		Model:    "test",
+		Timeout:  10 * time.Second,
+	})
+
+	deps := ReactiveDeps{
+		LLM:      llmClient,
+		Reader:   lstore,
+		ProjCfg:  projection.Config{TZ: time.UTC},
+		Prompts:  prompts,
+		Date:     "2026-05-06",
+		Now:      time.Now(),
+		Deadline: 5 * time.Second,
+		Logger:   logger.WithField("c", "reactive-test"),
+	}
+
+	card, _, _, err := Ask(context.Background(), deps, "what's the latest with construction?")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, atomic.LoadInt64(&calls), "no repair round-trip should fire for an over-budget sub")
+
+	// Card should not be the degraded fallback.
+	require.NotEqual(t, "Couldn't reach an answer in time.", card.Title)
+
+	// Sub passes through unchanged — no truncation, no clamp.
+	require.Equal(t, oversizeRunes, len([]rune(card.Sub)),
+		"sub must pass through at full length; rejecting an over-budget sub throws away a usable answer")
+}

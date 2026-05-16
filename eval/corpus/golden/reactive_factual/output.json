@@ -1,0 +1,27 @@
+{
+  "card": {
+    "id": "acuity-ebf6",
+    "date": "2026-04-28",
+    "src": "ask",
+    "src_label": "Generated",
+    "rel": "med",
+    "kind": "",
+    "title": "Acuity at eleven",
+    "sub": "Your Acuity meeting is at 11:00 AM. It is a Series B narrative review.",
+    "meta": [],
+    "actions": [
+      {
+        "label": "Dismiss"
+      }
+    ]
+  },
+  "degraded": false,
+  "expect_hits": {
+    "title": true,
+    "sub": true,
+    "src": true,
+    "rel": true,
+    "not_degraded": true
+  },
+  "query": "What time is my Acuity meeting and what's it about?"
+}

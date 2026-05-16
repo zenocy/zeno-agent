@@ -1,0 +1,26 @@
+You are tagging historical observations against ONE long-running situation
+(a "concern"). The concern is named below. For each observation in the BATCH,
+decide whether it belongs to that concern.
+
+Be conservative. A high-quality "no" is better than a low-quality "yes".
+- Tag if the observation is ABOUT the concern's subject — its participants,
+  events, decisions, logistics.
+- DO NOT tag transactional noise (receipts, statements, ride confirmations,
+  newsletters) even if the topic loosely overlaps.
+- DO NOT tag a tangential mention; the observation must be substantively
+  about the concern.
+
+CONCERN:
+- Name: {{.ConcernName}}
+- Description: {{.ConcernDescription}}
+
+BATCH (each line is one observation):
+{{range .Items}}- [{{.ID}}] {{.Date}} · {{.Kind}} · {{.Title}}{{with .Sender}} ({{.}}){{end}}{{with .Preview}} — {{.}}{{end}}
+{{end}}
+
+Respond with ONLY a JSON object — no prose, no code fences:
+{
+  "tags": [
+    { "observation_id": "<id>", "tag": true|false, "confidence": 0.0..1.0 }
+  ]
+}

@@ -1,0 +1,134 @@
+{
+  "briefing": {
+    "date": "2026-04-29",
+    "eyebrow": "open afternoon · 3h 40m clear",
+    "title": "A protected window. Pick *one thing* that matters.",
+    "summary": "The pricing v2 memo sits at 24 days — you need two hours to finish the narrative. The window holds *until 14:00*. Lia's pickup at 15:30 is on Sam; the run window is yours.",
+    "tension": 20,
+    "suggested_followup": "Draft the pricing narrative outline"
+  },
+  "cards": {
+    "cards": [
+      {
+        "id": "pricing-fa9a",
+        "date": "2026-04-29",
+        "src": "tasks",
+        "src_label": "Docs · Pricing",
+        "rel": "high",
+        "kind": "",
+        "title": "Pricing v2 memo — *unfinished*",
+        "sub": "Draft started 24 days ago. The structure sits at /docs/pricing-v2-draft.md. You need a two-hour block to finish the narrative.",
+        "meta": [
+          "due now",
+          "2h block"
+        ],
+        "actions": [
+          {
+            "label": "Open draft",
+            "primary": true
+          },
+          {
+            "label": "Schedule block"
+          }
+        ],
+        "trace_id": "5ce53bf0-bd2d-4be0-895d-cd7b08c2bb67"
+      },
+      {
+        "id": "q2-0606",
+        "date": "2026-04-29",
+        "src": "tasks",
+        "src_label": "Hiring · Mira",
+        "rel": "med",
+        "kind": "",
+        "title": "Q2 hiring plan — *outline*",
+        "sub": "Mira Voss followed up 11 days ago. The outline needs the headcount table and the role-by-quarter rollup.",
+        "meta": [
+          "due now",
+          "1h block"
+        ],
+        "actions": [
+          {
+            "label": "Pull headcount table",
+            "primary": true
+          },
+          {
+            "label": "Draft rollup"
+          }
+        ],
+        "trace_id": "5ce53bf0-bd2d-4be0-895d-cd7b08c2bb67"
+      },
+      {
+        "id": "lia-2d56",
+        "date": "2026-04-29",
+        "src": "personal",
+        "src_label": "Family · Pickup",
+        "rel": "med",
+        "kind": "personal",
+        "title": "Lia's pickup — *Sam confirmed*",
+        "sub": "15:30 on the calendar. The school gate closes at 15:45.",
+        "meta": [
+          "15:30",
+          "soft"
+        ],
+        "actions": [
+          {
+            "label": "Leave office",
+            "primary": true
+          },
+          {
+            "label": "Pick up Lia"
+          }
+        ],
+        "trace_id": "5ce53bf0-bd2d-4be0-895d-cd7b08c2bb67"
+      },
+      {
+        "id": "eng-a6d4",
+        "date": "2026-04-29",
+        "src": "calendar",
+        "src_label": "Calendar · 09:00",
+        "rel": "low",
+        "kind": "",
+        "title": "Eng standup — *async*",
+        "sub": "09:00 start. Post your update and hold the rest of the morning for the memo.",
+        "meta": [
+          "09:00",
+          "15m"
+        ],
+        "actions": [
+          {
+            "label": "Post update",
+            "primary": true
+          },
+          {
+            "label": "Snooze"
+          }
+        ],
+        "trace_id": "5ce53bf0-bd2d-4be0-895d-cd7b08c2bb67"
+      },
+      {
+        "id": "bedtime-9134",
+        "date": "2026-04-29",
+        "src": "personal",
+        "src_label": "Family · Story",
+        "rel": "low",
+        "kind": "personal",
+        "title": "Bedtime story — *your turn*",
+        "sub": "19:00 to 19:30. Lia is waiting for the chapter to finish.",
+        "meta": [
+          "19:00",
+          "30m"
+        ],
+        "actions": [
+          {
+            "label": "Prepare story",
+            "primary": true
+          },
+          {
+            "label": "Skip"
+          }
+        ],
+        "trace_id": "5ce53bf0-bd2d-4be0-895d-cd7b08c2bb67"
+      }
+    ]
+  }
+}

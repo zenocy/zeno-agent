@@ -1,0 +1,163 @@
+{
+  "briefing": {
+    "date": "2026-05-02",
+    "eyebrow": "draft pending",
+    "title": "Cards ready. *Briefing* in retry.",
+    "summary": "Zeno couldn't compose a briefing on the first pass — the 6 cards below are valid.",
+    "tension": 50
+  },
+  "cards": {
+    "cards": [
+      {
+        "id": "lia-ddb5",
+        "date": "2026-05-02",
+        "src": "personal",
+        "src_label": "Family · 10:00",
+        "rel": "high",
+        "kind": "personal",
+        "title": "Lia's *gymnastics* block at 10:00",
+        "sub": "The mat is waiting. Ninety minutes to watch her build momentum before you leave for home.",
+        "meta": [
+          "10:00–11:30",
+          "·",
+          "yours"
+        ],
+        "actions": [
+          {
+            "label": "Leave by 09:40",
+            "primary": true
+          },
+          {
+            "label": "Pack water bottle"
+          }
+        ],
+        "trace_id": "b974eb85-7982-4642-9e5f-f1c6734956bc"
+      },
+      {
+        "id": "saru-b143",
+        "date": "2026-05-02",
+        "src": "tasks",
+        "src_label": "Work · Deferred",
+        "rel": "high",
+        "kind": "",
+        "title": "Saru redline — *deferred* until Monday",
+        "sub": "He acked your note. The document sits cold until you reset it Monday.",
+        "meta": [
+          "Fri 17:48",
+          "·",
+          "deferred"
+        ],
+        "actions": [
+          {
+            "label": "Flag for Monday 09:00",
+            "primary": true
+          },
+          {
+            "label": "Close inbox"
+          }
+        ],
+        "trace_id": "b974eb85-7982-4642-9e5f-f1c6734956bc"
+      },
+      {
+        "id": "brunch-0667",
+        "date": "2026-05-02",
+        "src": "personal",
+        "src_label": "Family · 12:00",
+        "rel": "med",
+        "kind": "personal",
+        "title": "Brunch with Sam follows at 12:00",
+        "sub": "The gap between mats and mimosas is tight. Thirty minutes to breathe before you face the menu and him.",
+        "meta": [
+          "12:00–13:30",
+          "·",
+          "soft commit"
+        ],
+        "actions": [
+          {
+            "label": "Reserve the corner table",
+            "primary": true
+          },
+          {
+            "label": "Mute work phone"
+          }
+        ],
+        "trace_id": "b974eb85-7982-4642-9e5f-f1c6734956bc"
+      },
+      {
+        "id": "mira-1121",
+        "date": "2026-05-02",
+        "src": "personal",
+        "src_label": "Family · 15:00",
+        "rel": "med",
+        "kind": "personal",
+        "title": "Mira arrives at 15:00 for *playdate*",
+        "sub": "The living room needs clearing. Two hours of chaos before you retreat to the kitchen.",
+        "meta": [
+          "15:00–17:00",
+          "·",
+          "hosting"
+        ],
+        "actions": [
+          {
+            "label": "Clear the coffee table",
+            "primary": true
+          },
+          {
+            "label": "Hide the breakables"
+          }
+        ],
+        "trace_id": "b974eb85-7982-4642-9e5f-f1c6734956bc"
+      },
+      {
+        "id": "family-6684",
+        "date": "2026-05-02",
+        "src": "personal",
+        "src_label": "Family · 18:30",
+        "rel": "med",
+        "kind": "personal",
+        "title": "Family *dinner* at 18:30",
+        "sub": "The table fills up. Eighty minutes of quiet before you sleep.",
+        "meta": [
+          "18:30–20:00",
+          "·",
+          "shared"
+        ],
+        "actions": [
+          {
+            "label": "Set the good plates",
+            "primary": true
+          },
+          {
+            "label": "Wait for everyone"
+          }
+        ],
+        "trace_id": "b974eb85-7982-4642-9e5f-f1c6734956bc"
+      },
+      {
+        "id": "lincoln-9f0b",
+        "date": "2026-05-02",
+        "src": "tasks",
+        "src_label": "Email · Lincoln Elementary",
+        "rel": "low",
+        "kind": "",
+        "title": "Lincoln Elementary · *newsletter* week 18",
+        "sub": "Spring concert sign-up opens Monday. Volunteer slots for the bake table are still open.",
+        "meta": [
+          "07:14",
+          "·",
+          "1 msg"
+        ],
+        "actions": [
+          {
+            "label": "Sign up for concert",
+            "primary": true
+          },
+          {
+            "label": "Ignore bake table"
+          }
+        ],
+        "trace_id": "b974eb85-7982-4642-9e5f-f1c6734956bc"
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "state": "end_of_day",
+  "must_cards": [
+    {
+      "name": "Personal card ahead of incremental work",
+      "src": [
+        "personal"
+      ],
+      "title_contains": [
+        "lia",
+        "bedtime",
+        "sam",
+        "dinner"
+      ],
+      "sub_contains": [
+        "tonight",
+        "your turn",
+        "19:",
+        "home"
+      ]
+    }
+  ]
+}
