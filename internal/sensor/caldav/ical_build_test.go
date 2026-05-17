@@ -11,10 +11,10 @@ import (
 func TestBuildEventICS_Roundtrip(t *testing.T) {
 	tz := time.UTC
 	spec := EventSpec{
-		Title:    "Lia's recital",
-		Start:    time.Date(2026, 5, 7, 17, 0, 0, 0, tz),
-		End:      time.Date(2026, 5, 7, 18, 30, 0, 0, tz),
-		Location: "Mariastrasse 14",
+		Title:      "Lia's recital",
+		Start:      time.Date(2026, 5, 7, 17, 0, 0, 0, tz),
+		End:        time.Date(2026, 5, 7, 18, 30, 0, 0, tz),
+		Location:   "Mariastrasse 14",
 		Categories: []string{"personal"},
 	}
 

@@ -14,11 +14,11 @@ import (
 // user is replying to plus the user's optional steer ("decline politely",
 // "agree to the redline", etc).
 type DraftReplyContext struct {
-	From       string    // sender name + address as it appears on the source mail
-	Subject    string    // the source mail's subject (the drafter prefixes Re: itself)
-	BodySnippet string   // 1-3 paragraphs from the source mail; trimmed before prompt
-	SentAt     time.Time // header Date of the source mail
-	UserSteer  string    // optional: target.steer from the action's Target map
+	From        string    // sender name + address as it appears on the source mail
+	Subject     string    // the source mail's subject (the drafter prefixes Re: itself)
+	BodySnippet string    // 1-3 paragraphs from the source mail; trimmed before prompt
+	SentAt      time.Time // header Date of the source mail
+	UserSteer   string    // optional: target.steer from the action's Target map
 }
 
 // DraftReplyOpts tunes the drafting call. Zero values use sensible defaults.

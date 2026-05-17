@@ -88,8 +88,8 @@ const (
 	// use it to drop events that vanished between polls (user deleted
 	// in their calendar UI), since cal.event_seen alone never retracts.
 	KindCalListSnapshot = "cal.list_snapshot"
-	KindWeatherSnapshot   = "weather.snapshot"
-	KindIMAPCursor        = "imap.cursor"
+	KindWeatherSnapshot = "weather.snapshot"
+	KindIMAPCursor      = "imap.cursor"
 
 	// Full UID set per IMAP folder per poll. The latest event per folder
 	// is authoritative — projections use it to filter mail.received down
@@ -121,9 +121,9 @@ const (
 	// dropped at the receive boundary and emit NO events — that is the
 	// privacy contract documented in docs/whatsapp.md and asserted in
 	// internal/whatsapp/service_test.go.
-	KindWhatsAppConnected     = "whatsapp.connected"
-	KindWhatsAppDisconnected  = "whatsapp.disconnected"
-	KindWhatsAppLoggedOut     = "whatsapp.logged_out"
+	KindWhatsAppConnected         = "whatsapp.connected"
+	KindWhatsAppDisconnected      = "whatsapp.disconnected"
+	KindWhatsAppLoggedOut         = "whatsapp.logged_out"
 	KindWhatsAppMessageRecv       = "whatsapp.message.received"
 	KindWhatsAppMessageSent       = "whatsapp.message.sent"
 	KindWhatsAppMessageFailed     = "whatsapp.message.failed"
@@ -144,41 +144,40 @@ const (
 	// produce a state change emit an outcome row; dismiss/snooze
 	// keep firing user.action_taken alone (they are themselves the
 	// state change and adding a parallel row would double-count).
-	KindMailDraftSaved          = "mail.draft_saved"
-	KindMailMarkedRead          = "mail.marked_read"
-	KindMailMoved               = "mail.moved"
-	KindMailSent                = "mail.sent"
-	KindCalEventCreated         = "cal.event_created"
-	KindCalEventBlocked         = "cal.event_blocked"
-	KindCalRSVPSent             = "cal.rsvp_sent"
-	KindConcernAddedViaAction   = "concern.added_via_action"
-	KindMemoryAddedViaAction    = "memory.added_via_action"
-	KindAskFollowup             = "ask.followup"
-	KindCardConverse            = "card.converse" // V2.10: card-conversation turn appended
-	KindActionPreflight         = "action.preflight"  // preview built, not committed
-	KindActionFailed            = "action.failed"     // executor returned an error or 412/etc
+	KindMailDraftSaved        = "mail.draft_saved"
+	KindMailMarkedRead        = "mail.marked_read"
+	KindMailMoved             = "mail.moved"
+	KindMailSent              = "mail.sent"
+	KindCalEventCreated       = "cal.event_created"
+	KindCalEventBlocked       = "cal.event_blocked"
+	KindCalRSVPSent           = "cal.rsvp_sent"
+	KindConcernAddedViaAction = "concern.added_via_action"
+	KindMemoryAddedViaAction  = "memory.added_via_action"
+	KindAskFollowup           = "ask.followup"
+	KindCardConverse          = "card.converse"    // V2.10: card-conversation turn appended
+	KindActionPreflight       = "action.preflight" // preview built, not committed
+	KindActionFailed          = "action.failed"    // executor returned an error or 412/etc
 
 	// V2.8.1: dropped at synth-time post-process because the action's
 	// final intent isn't in the live registry's wired set. Payload is
 	// {card_id, intent, label}; the row gives us a feedback loop on
 	// prompt drift over time.
-	KindActionDropped           = "action.dropped"
+	KindActionDropped = "action.dropped"
 
 	// V2.8.1: action surface expansion outcome events.
-	KindMailFlagged             = "mail.flagged"
-	KindCalEventRescheduled     = "cal.event_rescheduled"
-	KindCalEventCancelled       = "cal.event_cancelled"
-	KindCardPinned              = "card.pinned"
-	KindCardUnpinned            = "card.unpinned"
-	KindReminderSet             = "reminder.set"      // emitted by SetReminderExec; payload carries task_uid + fire_at
-	KindReminderFired           = "reminder.fired"    // deprecated as of V2.11 — use KindTaskAlarmFired (kept registered so historical logs parse)
-	KindTaskAddedViaAction      = "task.added_via_action"
-	KindTaskDeleted             = "task.deleted"
-	KindTaskEdited              = "task.edited" // emitted by EditTaskExec when title or due_date changes
-
+	KindMailFlagged         = "mail.flagged"
+	KindCalEventRescheduled = "cal.event_rescheduled"
+	KindCalEventCancelled   = "cal.event_cancelled"
+	KindCardPinned          = "card.pinned"
+	KindCardUnpinned        = "card.unpinned"
+	KindReminderSet         = "reminder.set"   // emitted by SetReminderExec; payload carries task_uid + fire_at
+	KindReminderFired       = "reminder.fired" // deprecated as of V2.11 — use KindTaskAlarmFired (kept registered so historical logs parse)
+	KindTaskAddedViaAction  = "task.added_via_action"
+	KindTaskDeleted         = "task.deleted"
+	KindTaskEdited          = "task.edited" // emitted by EditTaskExec when title or due_date changes
 
 	// V2.11: tasks/reminders unification. The sweeper writes this row
 	// each time a task's fire_at trips (task.status_changed already
 	// covers the [ ]→[x] transition). Replaces KindReminderFired.
-	KindTaskAlarmFired          = "task.alarm_fired"
+	KindTaskAlarmFired = "task.alarm_fired"
 )

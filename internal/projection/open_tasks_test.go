@@ -134,9 +134,9 @@ func TestOpenTasks_AlarmsRiseToTop(t *testing.T) {
 func TestOpenTasks_PriorityTiebreakWithinBand(t *testing.T) {
 	repo := newProjTaskRepo(t)
 
-	require.NoError(t, repo.Insert(context.Background(), store.Task{ID: "lo", Title: "low",  Priority: "low"}))
+	require.NoError(t, repo.Insert(context.Background(), store.Task{ID: "lo", Title: "low", Priority: "low"}))
 	require.NoError(t, repo.Insert(context.Background(), store.Task{ID: "hi", Title: "high", Priority: "high"}))
-	require.NoError(t, repo.Insert(context.Background(), store.Task{ID: "md", Title: "med",  Priority: "med"}))
+	require.NoError(t, repo.Insert(context.Background(), store.Task{ID: "md", Title: "med", Priority: "med"}))
 
 	got, err := (OpenTasks{Cfg: cfgAt("2026-05-05"), Tasks: repo}).Compute(context.Background(), logtest.NewMemReader())
 	require.NoError(t, err)

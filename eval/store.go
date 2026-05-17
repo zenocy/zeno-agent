@@ -275,7 +275,7 @@ func (s *EphemeralStore) Seed(ctx context.Context, f *Fixture) error {
 			"change_pct":    fa.ChangePct,
 			"threshold_pct": fa.ThresholdPct,
 			"currency":      currency,
-			"as_of":          ts,
+			"as_of":         ts,
 		}
 		if err := writeStockEvent(s.DB, fa.EvidenceID, ts, log.KindStockAlert, payload); err != nil {
 			return fmt.Errorf("append stock alert %q: %w", ticker, err)

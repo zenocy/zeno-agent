@@ -153,10 +153,10 @@ func (e *AddEventExec) Execute(ctx context.Context, ec ExecCtx) (Result, error) 
 			OK:           true,
 			NeedsConfirm: true,
 			Preview: map[string]any{
-				"title":    spec.Title,
-				"start":    start.Format(time.RFC3339),
-				"end":      end.Format(time.RFC3339),
-				"location": spec.Location,
+				"title":       spec.Title,
+				"start":       start.Format(time.RFC3339),
+				"end":         end.Format(time.RFC3339),
+				"location":    spec.Location,
 				"description": spec.Description,
 			},
 		}, nil
@@ -418,10 +418,10 @@ func (e *CancelEventExec) Execute(ctx context.Context, ec ExecCtx) (Result, erro
 	if src == nil {
 		// Already gone — treat as success (idempotent).
 		return Result{
-			OK:        true,
-			EventKind: logp.KindCalEventCancelled,
+			OK:           true,
+			EventKind:    logp.KindCalEventCancelled,
 			EventPayload: map[string]any{"uid": uid, "already_gone": true},
-			Toast:     "Event was already gone.",
+			Toast:        "Event was already gone.",
 		}, nil
 	}
 	title, _, _, _ := caldavsensor.EventSummary(src.ICS)

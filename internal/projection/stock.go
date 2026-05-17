@@ -289,16 +289,16 @@ type MarketsSummary struct {
 
 // TickerMovement is one row in MarketsSummary.Movements.
 type TickerMovement struct {
-	Ticker     string    `json:"ticker"`
-	Price      float64   `json:"price"`
-	PrevClose  float64   `json:"prev_close"`
-	Open       float64   `json:"open"`
-	ChangePct  float64   `json:"change_pct"`
-	GapPct     float64   `json:"gap_pct"` // (open - prev_close) / prev_close * 100, 0 when open is unknown
-	Breached   bool      `json:"breached"`
-	BreachAt   time.Time `json:"breach_at,omitempty"`
-	AsOf       time.Time `json:"as_of"`
-	Currency   string    `json:"currency,omitempty"`
+	Ticker    string    `json:"ticker"`
+	Price     float64   `json:"price"`
+	PrevClose float64   `json:"prev_close"`
+	Open      float64   `json:"open"`
+	ChangePct float64   `json:"change_pct"`
+	GapPct    float64   `json:"gap_pct"` // (open - prev_close) / prev_close * 100, 0 when open is unknown
+	Breached  bool      `json:"breached"`
+	BreachAt  time.Time `json:"breach_at,omitempty"`
+	AsOf      time.Time `json:"as_of"`
+	Currency  string    `json:"currency,omitempty"`
 }
 
 // Name returns the projection identifier.

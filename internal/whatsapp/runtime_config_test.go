@@ -71,8 +71,8 @@ func TestRuntimeConfigNormalize_NormalizesAllowedDMs(t *testing.T) {
 		AllowedDMs: []string{
 			"+447700900333@s.whatsapp.net",
 			"447700900333@s.whatsapp.net", // dup after normalize
-			"447700900111",               // bare phone, no @
-			"",                           // skipped
+			"447700900111",                // bare phone, no @
+			"",                            // skipped
 		},
 	}
 	out := cfg.Normalize()

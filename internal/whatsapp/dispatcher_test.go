@@ -85,7 +85,7 @@ func TestDispatcher_GlobalConcurrencyCap(t *testing.T) {
 
 	for i := 0; i < totalChats; i++ {
 		d.Enqueue(whatsapp.Decision{
-			Action: whatsapp.ActionProcess,
+			Action:  whatsapp.ActionProcess,
 			ChatJID: string(rune('a' + i)),
 		})
 	}

@@ -19,12 +19,12 @@ const whatsappConfigRowID = "default"
 // pollute the scalar settings shape; storing it as JSON in a dedicated
 // table keeps the singleton-row pattern intact.
 type WhatsAppConfigRow struct {
-	ID                 string    `gorm:"primaryKey;type:text"`
-	MentionName        string    `gorm:"type:text"`
-	AllowedDMsJSON     string    `gorm:"type:text"`
-	MinChatIntervalMs  int       `gorm:"not null;default:3000"`
-	MaxConcurrentSynth int       `gorm:"not null;default:4"`
-	PerChatBuffer      int       `gorm:"not null;default:4"`
+	ID                 string `gorm:"primaryKey;type:text"`
+	MentionName        string `gorm:"type:text"`
+	AllowedDMsJSON     string `gorm:"type:text"`
+	MinChatIntervalMs  int    `gorm:"not null;default:3000"`
+	MaxConcurrentSynth int    `gorm:"not null;default:4"`
+	PerChatBuffer      int    `gorm:"not null;default:4"`
 	UpdatedAt          time.Time
 }
 

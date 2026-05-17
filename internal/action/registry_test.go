@@ -90,7 +90,7 @@ func TestInferIntentForLabel(t *testing.T) {
 		{"Add to concerns", "add_concern"},
 		{"Remember this", "add_memory"},
 		{"Ask Zeno", "ask_followup"},
-		{"", ""},                // empty label → empty intent (handler returns 400)
+		{"", ""},                    // empty label → empty intent (handler returns 400)
 		{"banana split", "dismiss"}, // unknown → safe fallback
 	}
 	for _, tc := range cases {

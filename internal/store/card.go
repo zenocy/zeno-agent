@@ -40,8 +40,8 @@ type Card struct {
 	SnoozedDate string         `gorm:"type:text;default:''"         json:"-"` // "YYYY-MM-DD" while snoozed
 	// V2.8.1: pinned cards survive day boundaries — ListByDate
 	// returns them regardless of the requested date until unpinned.
-	Pinned      bool           `gorm:"index;default:false"          json:"pinned,omitempty"`
-	CreatedAt   time.Time      `                                    json:"-"`
+	Pinned    bool      `gorm:"index;default:false"          json:"pinned,omitempty"`
+	CreatedAt time.Time `                                    json:"-"`
 
 	// V2.5.0 Phase 3: nullable FK to concerns.id when this card's
 	// underlying observation is concern-tagged. Populated server-side by

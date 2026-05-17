@@ -104,11 +104,11 @@ func (h *Handler) action(c echo.Context) error {
 	}
 
 	result, _ := h.DispatchIntent(ctx, DispatchInput{
-		Intent:   intent,
-		Card:     card,
-		CardID:   id,
-		Target:   target,
-		Confirm:  req.Confirm,
+		Intent:       intent,
+		Card:         card,
+		CardID:       id,
+		Target:       target,
+		Confirm:      req.Confirm,
 		LegacyAction: legacyActionString(req, intent),
 	})
 

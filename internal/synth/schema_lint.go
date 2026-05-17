@@ -201,11 +201,10 @@ func init() {
 // and the call sites they protect.
 func productionSchemasForLint() map[string]map[string]any {
 	return map[string]map[string]any{
-		"cards":         CardSetSchemaMap(),
-		"card":          CardSchemaMap(),
-		"inject_cards":  InjectCardSetSchemaMap(),
-		"sub_card":      SubCardSchemaMap(),
-		"briefing":      BriefingSchemaMap(),
+		"cards":        CardSetSchemaMap(),
+		"card":         CardSchemaMap(),
+		"inject_cards": InjectCardSetSchemaMap(),
+		"sub_card":     SubCardSchemaMap(),
+		"briefing":     BriefingSchemaMap(),
 	}
 }
-

@@ -71,13 +71,13 @@ func TestContacts_GET_DirectorySurfacesAllImportedContacts(t *testing.T) {
 			{Value: "+44 7700 900111", Types: []string{"CELL"}, Pref: 1},
 			{Value: "+44 20 1234 5678", Types: []string{"WORK"}},
 		}),
-		Emails:    store.EncodeEmails([]store.Email{{Value: "partner@example.com"}}),
-		Nicknames: store.EncodeStringList([]string{"Sammy"}),
+		Emails:     store.EncodeEmails([]store.Email{{Value: "partner@example.com"}}),
+		Nicknames:  store.EncodeStringList([]string{"Sammy"}),
 		LastSyncAt: now,
 	}))
 	require.NoError(t, cd.Upsert(context.Background(), store.CardDAVContact{
 		UID: "vc-bob", DisplayName: "Bob Smith",
-		Phones: store.EncodePhones([]store.Phone{{Value: "+1"}}),
+		Phones:     store.EncodePhones([]store.Phone{{Value: "+1"}}),
 		LastSyncAt: now.Add(-time.Hour),
 	}))
 

@@ -225,4 +225,3 @@ func TestSpine_ReactiveInject_ManualAndReactive_SingleFlightInterlock(t *testing
 	require.Equalf(t, http.StatusOK, status2, "manual after reactive completion succeeds; body=%s", body2)
 	require.Equal(t, int32(2), injectCalls.Load(), "second manual trigger fires after gate release")
 }
-

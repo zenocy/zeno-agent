@@ -24,11 +24,11 @@ import (
 type MailDeps struct {
 	Dialer  imapsensor.Dialer
 	IMAPCfg config.IMAPConfig
-	SMTP    smtpsensor.Client      // nil → SMTP disabled, sends degrade to drafts
+	SMTP    smtpsensor.Client // nil → SMTP disabled, sends degrade to drafts
 	SMTPCfg config.SMTPConfig
-	Reader  logp.Reader            // for resolving the source mail.received event
+	Reader  logp.Reader // for resolving the source mail.received event
 	LLM     *llm.Client
-	Voice   string                 // typically PromptSet.VoiceShort, used by DraftReply
+	Voice   string // typically PromptSet.VoiceShort, used by DraftReply
 	Logger  *logrus.Entry
 }
 
@@ -281,10 +281,10 @@ func (e *DraftReplyExec) Execute(ctx context.Context, ec ExecCtx) (Result, error
 			OK:           true,
 			NeedsConfirm: true,
 			Preview: map[string]any{
-				"to":      to,
-				"subject": subject,
-				"from":    from,
-				"body":    body,
+				"to":          to,
+				"subject":     subject,
+				"from":        from,
+				"body":        body,
 				"in_reply_to": src.MessageID,
 			},
 			Toast: "",

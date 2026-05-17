@@ -49,16 +49,16 @@ type Action struct {
 // The schema deliberately omits it from the LLM-facing JSON Schema
 // (zen tag is empty) so the model never tries to set it.
 type Card struct {
-	ID        string            `json:"id"                  zen:"required"`
-	Date      string            `json:"date"                zen:"required,format=date"`
-	Source    string            `json:"src"                 zen:"required,enum=mail|calendar|personal|tasks|markets|ask"`
-	SrcLabel  string            `json:"src_label"           zen:"required,maxlen=80"`
-	Rel       string            `json:"rel"                 zen:"required,enum=high|med|low"`
-	Kind      string            `json:"kind"                zen:"enum=|personal|reply_received"`
-	Title     string            `json:"title"               zen:"required,minlen=4,maxlen=120"`
-	Sub       string            `json:"sub"                 zen:"required,minlen=20"`
-	Meta    []string `json:"meta"                zen:"maxitems=4"`
-	Actions []Action `json:"actions"             zen:"required,minitems=1,maxitems=3"`
+	ID       string   `json:"id"                  zen:"required"`
+	Date     string   `json:"date"                zen:"required,format=date"`
+	Source   string   `json:"src"                 zen:"required,enum=mail|calendar|personal|tasks|markets|ask"`
+	SrcLabel string   `json:"src_label"           zen:"required,maxlen=80"`
+	Rel      string   `json:"rel"                 zen:"required,enum=high|med|low"`
+	Kind     string   `json:"kind"                zen:"enum=|personal|reply_received"`
+	Title    string   `json:"title"               zen:"required,minlen=4,maxlen=120"`
+	Sub      string   `json:"sub"                 zen:"required,minlen=20"`
+	Meta     []string `json:"meta"                zen:"maxitems=4"`
+	Actions  []Action `json:"actions"             zen:"required,minitems=1,maxitems=3"`
 	// Expand is a free-form key→string map the LLM may populate with
 	// expanded-card metadata (e.g. {"thread tail":"..."}). The keys
 	// aren't fixed, so we declare an OBJECT with empty `properties`

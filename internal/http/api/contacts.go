@@ -461,4 +461,3 @@ func (h *ContactsHandler) now() time.Time {
 	}
 	return time.Now()
 }
-

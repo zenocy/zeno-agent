@@ -625,55 +625,55 @@ func runServe(args []string) {
 	// reactive-synth path. Extracting here keeps the closure DRY and
 	// guarantees identical behavior across the two surfaces.
 	askFn := func(ctx context.Context, query string) (synth.Card, llm.Trace, []llm.MemoryCandidate, error) {
-			tz := bc.settingsSvc.TZ()
-			now := time.Now()
-			// V2.5.0 P3: surface top-3 active+paused concerns in the reactive
-			// prompt so the model sees what's available before deciding to
-			// call lookup_concern. Best-effort — error degrades to empty.
-			projConcerns, _ := projection.ActiveConcerns{
-				Repo:    concernRepo,
-				TagRepo: concernObsRepo,
-				Config:  projection.ActiveConcernsConfig{Limit: 3, IncludePaused: true},
-			}.Compute(ctx, bc.store)
-			deps := synth.ReactiveDeps{
-				LLM:                     bc.llm,
-				Reader:                  bc.store,
-				Tasks:                   taskRepo,
-				ProjCfg:                 projCfg,
-				Memory:                  memoryRepo,
-				MemoryRanker:            ranker,
-				Prompts:                 prompts,
-				Date:                    now.In(tz).Format("2006-01-02"),
-				Now:                     now,
-				Deadline:                reactiveDeadline,
-				ToolTimeout:             toolTimeout,
-				MaxIterations:           bc.cfg.Synth.ReactiveMaxIterations,
-				Logger:                  bc.logger.WithField("c", "reactive"),
-				Concerns:                concernRepo,
-				ConcernObservations:     concernObsRepo,
-				Bus:                     bus,
-				EventLogWriter:          bc.store,
-				RetrospectiveDispatcher: retroDispatcher,
-				ConcernsProjected:       projConcerns,
-				JinaClient:              jinaToolClient,
-				JinaCache:               jinaStore,
-				SearchTTL:               jinaSearchTTL,
-				ReadTTL:                 jinaReadTTL,
-				WiredIntents:            wiredIntents,
-				AddTask:                 addTaskFn,
-				ResolveContact:          resolveContactFn,
-				SendWhatsAppMessage:     sendWhatsAppPreviewFn,
-				ExpectedReplies:         expectedReplyRepo,
+		tz := bc.settingsSvc.TZ()
+		now := time.Now()
+		// V2.5.0 P3: surface top-3 active+paused concerns in the reactive
+		// prompt so the model sees what's available before deciding to
+		// call lookup_concern. Best-effort — error degrades to empty.
+		projConcerns, _ := projection.ActiveConcerns{
+			Repo:    concernRepo,
+			TagRepo: concernObsRepo,
+			Config:  projection.ActiveConcernsConfig{Limit: 3, IncludePaused: true},
+		}.Compute(ctx, bc.store)
+		deps := synth.ReactiveDeps{
+			LLM:                     bc.llm,
+			Reader:                  bc.store,
+			Tasks:                   taskRepo,
+			ProjCfg:                 projCfg,
+			Memory:                  memoryRepo,
+			MemoryRanker:            ranker,
+			Prompts:                 prompts,
+			Date:                    now.In(tz).Format("2006-01-02"),
+			Now:                     now,
+			Deadline:                reactiveDeadline,
+			ToolTimeout:             toolTimeout,
+			MaxIterations:           bc.cfg.Synth.ReactiveMaxIterations,
+			Logger:                  bc.logger.WithField("c", "reactive"),
+			Concerns:                concernRepo,
+			ConcernObservations:     concernObsRepo,
+			Bus:                     bus,
+			EventLogWriter:          bc.store,
+			RetrospectiveDispatcher: retroDispatcher,
+			ConcernsProjected:       projConcerns,
+			JinaClient:              jinaToolClient,
+			JinaCache:               jinaStore,
+			SearchTTL:               jinaSearchTTL,
+			ReadTTL:                 jinaReadTTL,
+			WiredIntents:            wiredIntents,
+			AddTask:                 addTaskFn,
+			ResolveContact:          resolveContactFn,
+			SendWhatsAppMessage:     sendWhatsAppPreviewFn,
+			ExpectedReplies:         expectedReplyRepo,
+		}
+		if bc.metrics != nil {
+			deps.LoopObserver = llm.LoopObserver{
+				OnLLMCall:      bc.metrics.ObserveLLMCall,
+				OnSchemaRepair: bc.metrics.IncSchemaRepair,
+				OnTool:         bc.metrics.ObserveTool,
+				OnLoopIters:    bc.metrics.ObserveLoopIters,
 			}
-			if bc.metrics != nil {
-				deps.LoopObserver = llm.LoopObserver{
-					OnLLMCall:      bc.metrics.ObserveLLMCall,
-					OnSchemaRepair: bc.metrics.IncSchemaRepair,
-					OnTool:         bc.metrics.ObserveTool,
-					OnLoopIters:    bc.metrics.ObserveLoopIters,
-				}
-				deps.OnSynthRun = bc.metrics.ObserveSynthRun
-			}
+			deps.OnSynthRun = bc.metrics.ObserveSynthRun
+		}
 		return synth.Ask(ctx, deps, query)
 	}
 
@@ -1453,7 +1453,6 @@ func buildSensors(ctx context.Context, cfg *config.Config, settingsSvc *settings
 	} else {
 		logger.Warn("caldav sensor disabled: url not configured")
 	}
-
 
 	// Stock sensor is always wired — it self-noops via SettingsSource
 	// when no tickers are configured, and starts polling the moment

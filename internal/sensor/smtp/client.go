@@ -29,7 +29,7 @@ type Client interface {
 
 // RealClient wraps stdlib net/smtp.
 type RealClient struct {
-	Cfg     config.SMTPConfig
+	Cfg config.SMTPConfig
 	// Now is overridable for tests; only used for the Date check below.
 	Now func() time.Time
 }

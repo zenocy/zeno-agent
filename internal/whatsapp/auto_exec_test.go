@@ -84,8 +84,8 @@ func TestSynthHandler_AutoExec_SkippedForNonTaskIntents(t *testing.T) {
 	// Card whose primary action is NOT in the auto-exec whitelist.
 	ask := func(_ context.Context, _ string, _ *synth.ConversationContext) (synth.Card, error) {
 		return synth.Card{
-			Title:  "Just info",
-			Speech: "Yesterday we last met on Tuesday.",
+			Title:   "Just info",
+			Speech:  "Yesterday we last met on Tuesday.",
 			Actions: []synth.Action{{Label: "Dismiss", Primary: true, Intent: "dismiss"}},
 		}, nil
 	}

@@ -46,12 +46,12 @@ type converseRequest struct {
 }
 
 type turnDTO struct {
-	ID        string         `json:"id"`
-	Position  int            `json:"position"`
-	Prompt    string         `json:"prompt"`
-	Reply     synth.SubCard  `json:"reply"`
-	TraceID   string         `json:"trace_id"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID        string        `json:"id"`
+	Position  int           `json:"position"`
+	Prompt    string        `json:"prompt"`
+	Reply     synth.SubCard `json:"reply"`
+	TraceID   string        `json:"trace_id"`
+	CreatedAt time.Time     `json:"created_at"`
 }
 
 type threadResponse struct {

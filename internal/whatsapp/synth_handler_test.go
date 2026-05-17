@@ -66,8 +66,8 @@ func TestSynthHandler_DMHappyPath(t *testing.T) {
 		assert.True(t, conv.IsDM)
 		assert.Equal(t, "Jamie", conv.SenderName)
 		return synth.Card{
-			Title: "Today is busy",
-			Sub:   "Three meetings starting at 10:00.",
+			Title:  "Today is busy",
+			Sub:    "Three meetings starting at 10:00.",
 			Speech: "You've got three meetings today, kicking off at 10am.",
 		}, nil
 	}

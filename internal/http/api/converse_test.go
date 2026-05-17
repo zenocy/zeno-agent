@@ -209,4 +209,3 @@ func TestConverseHandler_PinnedCardSurfacedToConverseFn(t *testing.T) {
 	require.Equal(t, "Email · Acuity", seen.SrcLabel)
 	require.Contains(t, seen.Meta, "06:14")
 }
-

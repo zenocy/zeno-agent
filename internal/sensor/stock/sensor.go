@@ -202,10 +202,10 @@ func (s *Sensor) Sync(ctx context.Context) error {
 
 	if s.log != nil {
 		s.log.WithFields(logrus.Fields{
-			"tickers":  len(tickers),
-			"written":  written,
-			"alerted":  alerted,
-			"skipped":  skipped,
+			"tickers": len(tickers),
+			"written": written,
+			"alerted": alerted,
+			"skipped": skipped,
 		}).Info("stock: sync complete")
 	}
 

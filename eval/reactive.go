@@ -41,13 +41,13 @@ type ReactiveResult struct {
 
 // ReactiveHits records per-criterion pass/fail for a ReactiveExpect.
 type ReactiveHits struct {
-	Title       bool `json:"title"`         // empty TitleContains → true (no constraint)
-	Sub         bool `json:"sub"`           // empty SubContains → true
-	Src         bool `json:"src"`           // empty SrcIn → true
-	Rel         bool `json:"rel"`           // empty RelIn → true
-	NotDeg      bool `json:"not_degraded"`  // true when MustNotBeDegraded passes (or wasn't required)
-	Speech      bool `json:"speech"`        // V2.7: empty SpeechContains → true
-	SpeechClean bool `json:"speech_clean"`  // V2.7: empty SpeechMustNotContain → true
+	Title       bool `json:"title"`        // empty TitleContains → true (no constraint)
+	Sub         bool `json:"sub"`          // empty SubContains → true
+	Src         bool `json:"src"`          // empty SrcIn → true
+	Rel         bool `json:"rel"`          // empty RelIn → true
+	NotDeg      bool `json:"not_degraded"` // true when MustNotBeDegraded passes (or wasn't required)
+	Speech      bool `json:"speech"`       // V2.7: empty SpeechContains → true
+	SpeechClean bool `json:"speech_clean"` // V2.7: empty SpeechMustNotContain → true
 }
 
 // AllPass reports whether every active criterion passed.

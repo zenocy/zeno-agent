@@ -17,8 +17,8 @@ import (
 // tests. PUTs are recorded; UpdateEvent honors a sticky precondition
 // failure flag for testing the 412 path.
 type stubCalDAV struct {
-	events map[string]*caldavsensor.RawEvent // by UID
-	puts   []putRecord
+	events  map[string]*caldavsensor.RawEvent // by UID
+	puts    []putRecord
 	updates []updateRecord
 	deletes []deleteRecord
 
@@ -34,10 +34,10 @@ type putRecord struct {
 	ETag string
 }
 type updateRecord struct {
-	Path     string
-	ICS      string
-	IfMatch  string
-	NewETag  string
+	Path    string
+	ICS     string
+	IfMatch string
+	NewETag string
 }
 type deleteRecord struct {
 	Path    string

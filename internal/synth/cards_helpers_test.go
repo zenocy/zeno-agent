@@ -38,7 +38,7 @@ func TestInferIntent(t *testing.T) {
 		{"Delegate to Mara", "ask_followup"},
 		{"Add to concerns", "add_concern"},
 		{"Remember this", "add_memory"},
-		{"", "dismiss"},                  // empty label → safe fallback
+		{"", "dismiss"},                        // empty label → safe fallback
 		{"completely unknown verb", "dismiss"}, // unknown → safe fallback
 	}
 	for _, tc := range cases {
@@ -53,7 +53,7 @@ func TestDropUnwiredActions(t *testing.T) {
 	// Card with two wired + one unwired action.
 	c := &Card{Actions: []Action{
 		{Label: "Dismiss", Intent: "dismiss"},
-		{Label: "Investigate", Intent: "investigate"},  // unwired → drop
+		{Label: "Investigate", Intent: "investigate"}, // unwired → drop
 		{Label: "Draft a reply", Intent: "draft_reply"},
 	}}
 	dropped := dropUnwiredActions(c, wired)
@@ -241,8 +241,8 @@ func TestBackfillMailTargets_BestMatchOverFirstMatch(t *testing.T) {
 		},
 	}}}
 	threads := []projection.Thread{
-		{Subject: "redline draft from Lin", LastReceived: time.Now().Add(-time.Hour)},                // 1 token: "redline"
-		{Subject: "Saru Patel · redline review", LastReceived: time.Now().Add(-2 * time.Hour)},        // multiple tokens
+		{Subject: "redline draft from Lin", LastReceived: time.Now().Add(-time.Hour)},          // 1 token: "redline"
+		{Subject: "Saru Patel · redline review", LastReceived: time.Now().Add(-2 * time.Hour)}, // multiple tokens
 	}
 	backfillMailTargets(cs, threads, nil)
 	require.Equal(t, "Saru Patel · redline review", cs.Cards[0].Actions[0].Target["subject"])

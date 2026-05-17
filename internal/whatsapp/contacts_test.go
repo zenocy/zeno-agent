@@ -39,7 +39,7 @@ func seedContact(t *testing.T, m *store.MemoryRepo, l *store.ContactLinkRepo, id
 			Category:       store.MemoryCategoryContactWhatsApp,
 			Confidence:     "high",
 			Source:         "user",
-			EvidenceCount: 1,
+			EvidenceCount:  1,
 			FirstSeen:      now,
 			LastReinforced: now,
 		},
@@ -176,7 +176,7 @@ func TestResolver_PreferredPhoneOverride(t *testing.T) {
 		Category:       store.MemoryCategoryContactWhatsApp,
 		Confidence:     "high",
 		Source:         "user",
-		EvidenceCount: 1,
+		EvidenceCount:  1,
 		FirstSeen:      time.Now(),
 		LastReinforced: time.Now(),
 	}}))
