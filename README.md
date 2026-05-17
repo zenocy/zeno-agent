@@ -1,10 +1,93 @@
-# Zeno V2
+# Zeno Agent
 
-Single-user, self-hosted ambient cognitive surface. One Go binary, embedded React UI, SQLite. Reads your mail/calendar/weather and surfaces what matters in a calm, opinionated, literary voice.
+A single-user, self-hosted ambient agent. It reads your mail, calendar,
+weather, and the threads you care about; surfaces what actually matters
+in a calm, opinionated, literary voice; and runs entirely on your own
+machine against a local (or any OpenAI-compatible) LLM.
 
-**Status:** MVP. Phases 0–5 complete. V2.1.0 voice & reliability hardening shipped (see [`doc/v2.1/`](doc/v2.1/)). V2.2.0 derived-memory layer shipped (see [`doc/v2.2/`](doc/v2.2/)). V2.3.0 adaptive states shipping (see [`doc/v2.3/`](doc/v2.3/)). For roadmap and ship details see [`doc/TODO.md`](doc/TODO.md) and [`doc/Phase5.md`](doc/Phase5.md).
+One Go binary, embedded React UI, SQLite. No cloud, no account, no
+telemetry.
 
-## Try it (production)
+## What it does
+
+- **Morning briefing.** Twice a day on cron, a synthesizer pass reads
+  your inbox, today's calendar, weather, tracked concerns, and
+  (optionally) the web; emits a small set of cards ranked by what needs
+  your attention; and writes a short briefing in a literary voice.
+- **Ambient cards.** Throughout the day, sensors push new context onto
+  an append-only observation log. A deterministic state detector picks
+  one of five registers (`morning_calm`, `pre_meeting`, `deep_work`,
+  `message_inject`, `end_of_day`) that subtly changes the agent's voice
+  and what it surfaces.
+- **Reactive Ask.** One input box; the agent routes through a small
+  tool registry (`read_thread`, `read_event`, `read_weather_window`,
+  optional `search_web` / `read_url`) and answers with sources.
+- **Derived memory.** Durable facts about you — relationships,
+  routines, preferences — are extracted by a focused single-call pass
+  and consolidated into a `memory_facts` table. Edit and curate them in
+  the Profile panel.
+- **Outbound actions.** Send a reply over SMTP, draft and send a
+  WhatsApp message (optional pairing), or have your named EA reply on
+  your behalf — with a "reply received" card when the other side
+  responds.
+
+## Sensors
+
+Sensors are the only thing that writes to the observation log. Each one
+polls its source on a cadence and appends typed events; everything
+downstream (projections, cards, briefings) reads from the log, never
+from the source directly.
+
+| Sensor | What it reads | Required | Default cadence |
+|---|---|---|---|
+| **IMAP** | Inbox messages and threads (Fastmail, iCloud, Gmail with app password, …) | yes | every 10 min |
+| **CalDAV** | Today's events and the run-window outlook | yes | every 10 min |
+| **Weather** | Open-Meteo forecast for one lat/lon | yes | every 10 min |
+| **CardDAV** | Address book — resolves "my wife" → vCard → phone → JID for WhatsApp send | no | 5 min |
+| **Stock** | Yahoo quotes for a small ticker list; surfaces moves past a threshold | no | market hours only |
+| **Jina** | Saved web searches (Reader + Search APIs) refreshed on each cron tick | no | gated by per-query TTL (6h default) |
+| **WhatsApp** | Persistent `whatsmeow` socket as a linked device; inbound messages land as observations | no | event-driven |
+| **SMTP** | Outbound only — the action surface for `send_reply` / `forward` | no | — |
+
+Two reactive paths sit alongside the cron loop:
+
+- **Inject bus.** After every successful log append, the sensor
+  publishes on an in-process event bus. An `inject_detector` decides
+  whether the event is worth interrupting the day for; if so, a
+  single-card `message_inject` briefing fires immediately and streams
+  to the UI over SSE — no cron tick, no full reshuffle of the morning
+  grid.
+- **Concerns.** Long-running situations the user is tracking (a
+  Frankfurt trip, a hire, the house construction) bias card selection
+  and weave into prose as scaffolding, never as status reports.
+
+## Voice
+
+Voice is the product. If a Zeno briefing reads like ChatGPT, the
+product is dead — so every prompt in `prompts/` includes a voice rules
+preamble (`prompts/_voice.md`). The shape:
+
+- **Calm.** No exclamation marks, no urgency markers, no emoji.
+- **Opinionated.** Tells, doesn't ask. *"Reply to Saru first — the
+  option-pool answer feeds the deck."*
+- **Literary.** Briefings read like a paragraph from a novel — concrete
+  nouns, plain verbs, em-dash for asides, period for finality, one
+  italicized word per beat.
+- **Concrete.** Times, days, counts, names. *"6 days since your last
+  run." "Hold expires today at 17:00."* Not "recently" or "soon".
+- **Personal and work in one stream.** *"Sam's making dinner; Lia's
+  bedtime story is your turn"* sits next to a Series B briefing.
+- **Decisive close.** No "let me know what you think", no "happy to
+  adjust". The briefing is a statement, not an offer.
+
+The five adaptive states each pull the voice into a different register
+— `pre_meeting` braces the user for one charged event in the next two
+hours; `deep_work` protects a long block and trims cards; `end_of_day`
+closes today and gestures at tomorrow's first thing. State-specific
+rules and cards-bias overlays live in `prompts/_voice.md`; the
+[Zeno V2 spec](Zeno%20V2/zeno-data.jsx) is the canonical exemplar.
+
+## Quick start
 
 ```bash
 cp deploy/config.example.yaml deploy/config.yaml   # then edit
@@ -12,101 +95,91 @@ docker compose -f deploy/docker-compose.yml up -d
 open http://localhost:7777
 ```
 
-Full install path — provider notes (Gmail / Fastmail / iCloud), CalDAV URL discovery, LLM endpoint setup, LAN exposure, troubleshooting — is in **[`docs/README.md`](docs/README.md)**.
+You'll need:
 
-## Web tools (optional)
+- An **IMAP** account (Fastmail, iCloud, Gmail with app password, …).
+- A **CalDAV** URL (same provider, usually).
+- An **OpenAI-compatible LLM endpoint**. The default config points at
+  Ollama on the host (`http://host.docker.internal:11434/v1`); LM
+  Studio, vLLM, or any other compatible server work too. A ~30B local
+  model is the sweet spot — small enough to run on a workstation, large
+  enough to hold the literary voice.
+- Optional: a [Jina AI](https://jina.ai/) key to enable the
+  `search_web` and `read_url` tools. Set
+  `ZENO_WEB_JINA_API_KEY=jina_…` or fill in the `web.jina` block in
+  `config.yaml`.
 
-Reactive Ask, the morning briefing, and the inject pipeline can call out
-to the public web via two LLM tools — `search_web` and `read_url` —
-backed by [Jina AI](https://jina.ai/). Disabled until you provide a key.
-
-```bash
-# Get a key (10M free tokens, no card) at https://jina.ai/?sui=apikey
-export ZENO_WEB_JINA_API_KEY=jina_xxxxxxxxxxxxxx
-```
-
-…or in `config.yaml`:
-
-```yaml
-web:
-  jina:
-    api_key: jina_xxxxxxxxxxxxxx
-    # Optional scheduled saved searches — refreshed every SyncCron tick,
-    # gated by the 6h cache TTL so each query hits Jina at most every 6h.
-    # Each refresh appends one web.search.result observation to the log
-    # so the inject subscriber can promote a high-signal result to a card.
-    saved_searches:
-      - name: golang-news
-        query: "Go 1.24 release notes"
-        site: go.dev
-```
-
-Boot logs `jina: web tools enabled` once the key is picked up. Responses
-are cached in SQLite (`jina_cache` table; 6h for search, 24h for read,
-5min for sign-in pages). Empty `api_key` with non-empty `saved_searches`
-is a fatal config error. Full reference: [`docs/web.md`](docs/web.md).
+Everything else — WhatsApp pairing, CardDAV contacts, reminder
+dispatch, LAN exposure, tuning knobs — is documented inline in
+[`deploy/config.example.yaml`](deploy/config.example.yaml).
 
 ## Develop
 
 ```bash
-# Backend
+# Backend (serves on :7777)
 cp deploy/config.example.yaml config.yaml          # edit credentials
-go run ./cmd/zeno                                  # serve on :7777
+go run ./cmd/zeno
 
-# Frontend (separate terminal)
-cd ui && npm install && npm run dev                # vite on :5173, proxies /api
+# Frontend (separate terminal — Vite on :5173, proxies /api)
+cd ui && npm install && npm run dev
 
 # Or both at once with hot reload
 make dev                                           # requires `air`
 ```
 
-## Test, lint, ship
+## Test, lint, eval
 
 ```bash
 make test          # go test ./... + vitest
 make lint          # vet + gofmt + tsc + vitest
-make eval          # V2.1 harness — every fixture in eval/corpus against the LLM
-make eval-state    # V2.3.0 scoped harness — five state fixtures only (faster cycle)
-make eval-compare  # diff live run vs eval/corpus/golden/, non-zero on regression
+make eval          # run every fixture in eval/corpus through a real LLM
+make eval-compare  # diff a fresh run vs. eval/corpus/golden/ (non-zero on regression)
 make ship VERSION=v0.1.0
                    # lint + test + docker build → zeno:v0.1.0
-make ship-strict GATE_MODEL=gemma3:4b
-                   # ship + the four risk gates (needs LLM endpoint)
 ```
 
-> Touching `prompts/*.tmpl` or `prompts/_voice*.md` requires running
-> `make eval` and committing a new baseline (`make eval-baseline
-> EVAL_FORCE=1`) if the change is intentional. See
-> [`docs/voice.md`](docs/voice.md) for the rubric.
->
-> Memory-aware fixtures (V2.2.0, `eval/corpus/*_with_memory.json`)
-> seed `memory_facts` rows before the synth run; the
-> `memory_grounding` rubric dimension scores opener-tells,
-> fact-density, and multi-word verbatim leaks. Re-baselining is
-> required when prompts in the memory section change.
+The eval harness is the closest thing to a regression suite for the
+agent's voice and tool-use. It expects a running LLM endpoint (set
+`EVAL_CONFIG=config.yaml`) and is slow (~minutes against a local 30B);
+the goldens in `eval/corpus/golden/` capture a frozen-good run so
+prompt edits can be measured rather than guessed at.
 
-## Documentation
+## How it's built
 
-| Where | What |
-|---|---|
-| [`docs/README.md`](docs/README.md) | Install from cold (Docker, providers, LAN, troubleshooting) |
-| [`docs/voice.md`](docs/voice.md) | Voice rules — public mirror of `prompts/_voice.md`, with harness-enforcement section |
-| [`docs/web.md`](docs/web.md) | Web tools (Jina) — setup, caching, saved searches, costs |
-| [`docs/benches.md`](docs/benches.md) | Risk-gate harnesses (voice, tool-call, cold-start, schema) |
-| [`doc/TODO.md`](doc/TODO.md) | Phase index, architectural decisions, open questions |
-| [`doc/PhaseN.md`](doc/) | Self-contained per-phase briefs (Phase 0 → 5) |
-| [`doc/v2.1/`](doc/v2.1/) | V2.1.0 voice + reliability hardening — phases, handoff, release notes |
-| [`doc/v2.2/`](doc/v2.2/) | V2.2.0 derived-memory layer — phases, handoff, release notes |
-| [`doc/v2.3/`](doc/v2.3/) | V2.3.0 adaptive states — phases, handoff, release notes |
-| [`doc/v2.8/`](doc/v2.8/) | V2.8.0 action surface — phases, handoff, release notes |
-| [`prompts/_voice.md`](prompts/_voice.md) | Source of truth for the voice |
+Five components inside one Go process:
 
-## Architecture in one paragraph
+- **Sensors** (`internal/sensor/…`) — IMAP, CalDAV, Open-Meteo,
+  optionally CardDAV, stock, Jina, and WhatsApp. They write to the
+  append-only observation log (SQLite) and publish on the in-process
+  event bus immediately after each append.
+- **Projections** (`internal/projection`) — fold the log into typed
+  views consumed by the synthesizer and the UI: today's calendar, open
+  email threads, run window, derived-memory facts, stock snapshot,
+  weather, WhatsApp activity.
+- **Synthesizer** (`internal/synth`) — twice-daily cron runs a
+  tool-using cards loop over projections, emits
+  `remember: <subject>: <predicate>` lines for durable facts, and a
+  single literary call writes the briefing seeded by the cards.
+  `message_inject` is its own one-card pipeline that delivers via SSE
+  without reshuffling the morning grid.
+- **State + memory** — a deterministic detector picks the adaptive
+  state that overlays per-state voice and card-bias rules onto the
+  existing prompts. A deterministic consolidator folds extracted
+  candidates into `memory_facts`, with dedup-by-subject, evidence
+  counting, and eviction at a cap.
+- **HTTP + UI** (`internal/http`, `ui/`) — serves projections,
+  briefings, cards, memory CRUD, a reactive `Ask` endpoint, and a
+  `/api/today/stream` SSE feed to the embedded React UI.
 
-Five components inside one Go process. **Sensors** (IMAP / CalDAV / Open-Meteo, plus an optional Jina web sensor for scheduled saved searches) write to an append-only **observation log** (SQLite). **Projections** fold the log into typed views (today's calendar, open email threads, run window, derived-memory facts). The **synthesizer** runs twice a day: a tool-using cards loop reads projections via a small read-only tool registry — `read_thread`, `read_event`, `read_weather_window`, plus optional `search_web` / `read_url` when Jina is configured — emits `remember: <subject>: <predicate>` lines for durable user facts, and then a single literary call writes the briefing seeded by the cards. Between cards and briefing, a deterministic detector picks an **adaptive state** (`morning_calm`, `pre_meeting`, `deep_work`, `message_inject`, `end_of_day`) that overlays per-state voice and cards-bias rules onto the existing prompts; `message_inject` is its own mid-day single-card pipeline that delivers via SSE without reshuffling the morning grid. A **deterministic consolidator** folds new candidates into a separate `memory_facts` table — dedup by subject, evidence-counting, confidence promotion, eviction at cap. **Cards/briefings/traces/memory** persist in their own tables. The **HTTP API** serves projections, briefings, cards, memory CRUD, a reactive `Ask` endpoint, and a `/api/today/stream` SSE feed to the **embedded React UI** (which exposes a Profile panel for users to see, add, edit, and delete memory, and a state-aware Topbar pill). Cron drives `sync_all` (every 10 min) and `morning_synth` (configurable); message-inject fires reactively from sensor observations on the in-process event bus, not on a cron tick. No microservices, no DI container — modularity comes from typed interfaces between the components.
+Cron drives `sync_all` (every 10 min) and `morning_synth`
+(configurable). `message_inject` fires reactively from sensor
+observations on the event bus, not on a cron tick. No microservices,
+no DI container — modularity comes from typed interfaces between the
+components.
 
 ## License
 
-Licensed under the [Apache License, Version 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
+Licensed under the [Apache License, Version 2.0](LICENSE). See
+[`NOTICE`](NOTICE) for attribution.
 
 Copyright 2026 Andreas Louca
