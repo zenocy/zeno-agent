@@ -40,17 +40,78 @@ jobs:
       - name: build
         run: npm run build
 
-  docker:
-    runs-on: ubuntu-latest
+  docker-build:
     needs: [go, ui]
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64/v8
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
+      - name: compute platform pair
+        id: plat
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: echo "pair=${PLATFORM//\//-}" >> "$GITHUB_OUTPUT"
+      - name: compute image metadata
+        id: meta
+        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - name: log in to ghcr
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: ${{ matrix.platform }}
+          outputs: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.repo) || 'type=cacheonly' }}
+          build-args: |
+            VERSION=${{ github.sha }}
+      - name: export digest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - name: upload digest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ steps.plat.outputs.pair }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-manifest:
+    needs: docker-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - name: log in to ghcr
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -61,14 +122,10 @@ jobs:
         run: |
           echo "repo=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
           echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-      - name: build image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: deploy/Dockerfile
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          tags: |
-            ${{ steps.meta.outputs.repo }}:latest
-            ${{ steps.meta.outputs.repo }}:${{ steps.meta.outputs.sha }}
-          build-args: |
-            VERSION=${{ github.sha }}
+      - name: create manifest list
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            -t "${{ steps.meta.outputs.repo }}:latest" \
+            -t "${{ steps.meta.outputs.repo }}:${{ steps.meta.outputs.sha }}" \
+            $(printf '${{ steps.meta.outputs.repo }}@sha256:%s ' *)
