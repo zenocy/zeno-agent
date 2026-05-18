@@ -101,6 +101,11 @@ export interface Card {
   trace_id?: string;
   origin?: string;
   pinned?: boolean; // V2.8.1
+  // RFC3339 timestamp; populated by the server only for reactive ask cards.
+  // When the server's clock passes expires_at the card is dropped from
+  // the main rail by CardRepo.ListByDate, but the row remains in the
+  // archive view forever.
+  expires_at?: string;
 }
 
 export interface CardsResponse {

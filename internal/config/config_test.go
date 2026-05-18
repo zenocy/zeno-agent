@@ -23,6 +23,18 @@ func TestLoad_Defaults(t *testing.T) {
 	require.Equal(t, "./data/zeno.db", cfg.DB.Path)
 	require.Equal(t, "0 7 * * *", cfg.Schedule.MorningCron)
 	require.Equal(t, "0 12,16 * * *", cfg.Schedule.RefreshCron)
+	require.Equal(t, 6*time.Hour, cfg.Synth.AskCardTTL)
+}
+
+func TestLoad_AskCardTTLOverride(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("server:\n  port: 7777\nauth:\n  enabled: false\nsynth:\n  ask_card_ttl: 30m\n"), 0o600))
+
+	cfg, err := Load(path)
+	require.NoError(t, err)
+
+	require.Equal(t, 30*time.Minute, cfg.Synth.AskCardTTL)
 }
 
 func TestLoad_EnvOverride(t *testing.T) {

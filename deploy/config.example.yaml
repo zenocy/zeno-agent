@@ -104,6 +104,10 @@ synth:
   # on tool calls indefinitely. Cards default 6, reactive default 4.
   cards_max_iterations:    6
   reactive_max_iterations: 4
+  # How long persisted reactive ask cards stay on the main rail before
+  # they age out into the archive view only. Format: Go duration string
+  # ("6h", "30m", "90s"). Default 6h.
+  ask_card_ttl: 6h
 
 sensors:
   imap:

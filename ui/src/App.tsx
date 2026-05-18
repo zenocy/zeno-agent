@@ -9,6 +9,7 @@ import {
   User,
   Settings,
   Activity,
+  Archive,
   LogOut,
 } from "lucide-react";
 import { useBriefing } from "./api/useBriefing";
@@ -25,9 +26,10 @@ import { InputBar } from "./components/InputBar";
 import { ProfilePanel } from "./components/ProfilePanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { StatsPanel } from "./components/StatsPanel";
+import { ArchivePanel } from "./components/ArchivePanel";
 import type { Card as CardData, CalendarEvent } from "./types";
 
-type Page = "briefing" | "profile" | "settings" | "stats";
+type Page = "briefing" | "archive" | "profile" | "settings" | "stats";
 
 // Calendar and Tasks aren't pages in the design — they open the focus
 // modal as anchor cards (Zeno V2/zeno-app.jsx:71–78). These synthetic
@@ -98,6 +100,7 @@ function LeftNav({ currentPage, onNavigate, onOpenAnchor }: LeftNavProps) {
     { icon: CalendarDays, label: "Calendar", anchor: CALENDAR_ANCHOR },
     { icon: CheckSquare, label: "Tasks", anchor: TASKS_ANCHOR },
     { icon: FileText, label: "Documents" },
+    { icon: Archive, label: "Archive", page: "archive" },
     { icon: User, label: "Profile", page: "profile" },
     { icon: Activity, label: "Stats", page: "stats" },
   ];
@@ -338,6 +341,8 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {currentPage === "archive" && <ArchivePanel />}
 
           {currentPage === "profile" && <ProfilePanel />}
 

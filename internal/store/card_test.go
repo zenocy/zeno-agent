@@ -310,6 +310,94 @@ func TestCardRepo_DeleteStalePreservesInjectCards(t *testing.T) {
 	require.False(t, ids["morning-old"], "stale morning card must be swept")
 }
 
+// Unexpired ask cards must appear on the main rail alongside morning
+// cards on their date; expired (and legacy NULL-ExpiresAt) ask cards
+// must not. Together these pin the V2.x ask-card persistence window.
+func TestCardRepo_ListByDate_AskCardExpiry(t *testing.T) {
+	db := openTestDB(t)
+	repo := &CardRepo{DB: db}
+	ctx := context.Background()
+
+	today := "2026-05-18"
+	past := time.Now().Add(-1 * time.Hour)
+	future := time.Now().Add(1 * time.Hour)
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		{ID: "morning-mail", Date: today, Source: "mail", Rel: "high", Title: "morning", CreatedAt: time.Now()},
+		{ID: "ask-fresh", Date: today, Source: "ask", Origin: "ask", Rel: "med", Title: "fresh ask", CreatedAt: time.Now(), ExpiresAt: &future},
+		{ID: "ask-old", Date: today, Source: "ask", Origin: "ask", Rel: "med", Title: "old ask", CreatedAt: time.Now(), ExpiresAt: &past},
+		{ID: "ask-legacy", Date: today, Source: "ask", Origin: "ask", Rel: "med", Title: "legacy ask (no expires_at)", CreatedAt: time.Now()},
+	}))
+
+	rows, err := repo.ListByDate(ctx, today)
+	require.NoError(t, err)
+	ids := map[string]bool{}
+	for _, r := range rows {
+		ids[r.ID] = true
+	}
+	require.True(t, ids["morning-mail"], "non-ask cards always show")
+	require.True(t, ids["ask-fresh"], "ask card with future expires_at must surface on the main rail")
+	require.False(t, ids["ask-old"], "ask card with past expires_at must NOT surface on the main rail")
+	require.False(t, ids["ask-legacy"], "ask card with NULL expires_at (legacy pre-TTL row) must NOT surface — treat NULL as already expired")
+}
+
+// ListAllByDate is the archive query — no visibility filters at all.
+// Every row for the date must come back regardless of dismissed,
+// snoozed, or ask-expiry state, ordered newest-first.
+func TestCardRepo_ListAllByDate(t *testing.T) {
+	db := openTestDB(t)
+	repo := &CardRepo{DB: db}
+	ctx := context.Background()
+
+	today := "2026-05-18"
+	past := time.Now().Add(-1 * time.Hour)
+	t0 := time.Now()
+	t1 := t0.Add(1 * time.Millisecond)
+	t2 := t0.Add(2 * time.Millisecond)
+	t3 := t0.Add(3 * time.Millisecond)
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		{ID: "morning", Date: today, Source: "mail", Rel: "high", Title: "morning", CreatedAt: t0},
+		{ID: "dismissed", Date: today, Source: "calendar", Rel: "med", Title: "dismissed", Dismissed: true, CreatedAt: t1},
+		{ID: "snoozed", Date: today, Source: "tasks", Rel: "low", Title: "snoozed", SnoozedDate: today, CreatedAt: t2},
+		{ID: "ask-old", Date: today, Source: "ask", Origin: "ask", Rel: "med", Title: "expired ask", CreatedAt: t3, ExpiresAt: &past},
+	}))
+	// A row on a different date must NOT come back for today's archive.
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		{ID: "yesterday", Date: "2026-05-17", Source: "mail", Rel: "high", Title: "yesterday", CreatedAt: t0},
+	}))
+
+	rows, err := repo.ListAllByDate(ctx, today)
+	require.NoError(t, err)
+	require.Len(t, rows, 4, "archive returns every today-row regardless of filters")
+	// CreatedAt DESC → newest first.
+	require.Equal(t, "ask-old", rows[0].ID)
+	require.Equal(t, "snoozed", rows[1].ID)
+	require.Equal(t, "dismissed", rows[2].ID)
+	require.Equal(t, "morning", rows[3].ID)
+}
+
+// Migrate must add the expires_at column on a fresh DB so AutoMigrate
+// rollouts onto existing zeno installs pick up the new schema cleanly.
+func TestCardRepo_Migrate_AddsExpiresAtColumn(t *testing.T) {
+	db := openTestDB(t)
+
+	type col struct {
+		Cid     int
+		Name    string
+		Type    string
+		NotNull int `gorm:"column:notnull"`
+		Dflt    *string
+		Pk      int
+	}
+	var cols []col
+	require.NoError(t, db.Raw("PRAGMA table_info(cards)").Scan(&cols).Error)
+
+	names := map[string]bool{}
+	for _, c := range cols {
+		names[c.Name] = true
+	}
+	require.True(t, names["expires_at"], "cards table must have expires_at column after Migrate")
+}
+
 func TestTraceRepo_CreateAndGet(t *testing.T) {
 	db := openTestDB(t)
 	repo := &TraceRepo{DB: db}

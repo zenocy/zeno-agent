@@ -143,12 +143,13 @@ type MemoryConfig struct {
 // SynthConfig holds per-stage timeout budgets and synthesizer-loop tunables.
 // All durations are in seconds and surface as ZENO_SYNTH_<KEY> env overrides.
 type SynthConfig struct {
-	CardsTimeoutSec       int `mapstructure:"cards_timeout_sec"`       // default 30
-	BriefingTimeoutSec    int `mapstructure:"briefing_timeout_sec"`    // default 45
-	CronBudgetSec         int `mapstructure:"cron_budget_sec"`         // default 90 (cards + briefing + margin)
-	ToolTimeoutSec        int `mapstructure:"tool_timeout_sec"`        // default 5 (per individual tool execution)
-	CardsMaxIterations    int `mapstructure:"cards_max_iterations"`    // default 6 (LLM calls in the cards tool loop)
-	ReactiveMaxIterations int `mapstructure:"reactive_max_iterations"` // default 4 (LLM calls in the reactive tool loop)
+	CardsTimeoutSec       int           `mapstructure:"cards_timeout_sec"`       // default 30
+	BriefingTimeoutSec    int           `mapstructure:"briefing_timeout_sec"`    // default 45
+	CronBudgetSec         int           `mapstructure:"cron_budget_sec"`         // default 90 (cards + briefing + margin)
+	ToolTimeoutSec        int           `mapstructure:"tool_timeout_sec"`        // default 5 (per individual tool execution)
+	CardsMaxIterations    int           `mapstructure:"cards_max_iterations"`    // default 6 (LLM calls in the cards tool loop)
+	ReactiveMaxIterations int           `mapstructure:"reactive_max_iterations"` // default 4 (LLM calls in the reactive tool loop)
+	AskCardTTL            time.Duration `mapstructure:"ask_card_ttl"`            // default 6h — how long reactive ask cards stay on the main rail before aging into the archive only
 }
 
 // ServerConfig holds HTTP server settings.
@@ -427,6 +428,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("synth.tool_timeout_sec", 5)
 	v.SetDefault("synth.cards_max_iterations", 6)
 	v.SetDefault("synth.reactive_max_iterations", 4)
+	v.SetDefault("synth.ask_card_ttl", "6h")
 
 	v.SetDefault("schedule.morning_cron", "0 7 * * *")
 	v.SetDefault("schedule.refresh_cron", "0 12,16 * * *")

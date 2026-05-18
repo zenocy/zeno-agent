@@ -741,6 +741,7 @@ func runServe(args []string) {
 		Now:             time.Now,
 		Deadline:        reactiveDeadline,
 		ExtractDeadline: reactiveDeadline,
+		AskCardTTL:      bc.cfg.Synth.AskCardTTL,
 		Log:             bc.logger.WithField("c", "ask"),
 	}).Register(srv.Echo)
 

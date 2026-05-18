@@ -376,6 +376,91 @@ func TestAskHandler_PersistFailureDoesNotFailResponse(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code, "response must succeed even when Cards repo is unwired")
 }
 
+// TestAskHandler_PersistsExpiresAt proves that ask cards are stamped with
+// ExpiresAt = now + AskCardTTL when persisted, so CardRepo.ListByDate can
+// drop them from the main rail after the configured window while the row
+// itself stays in the table for the archive view.
+func TestAskHandler_PersistsExpiresAt(t *testing.T) {
+	db := openHandlerTestDB(t)
+	cards := &store.CardRepo{DB: db}
+	traces := &store.TraceRepo{DB: db}
+
+	fixedNow := time.Date(2026, 5, 18, 8, 0, 0, 0, time.UTC)
+	ttl := 6 * time.Hour
+	stubCard := synth.Card{
+		ID: "iran-war-ab12", Date: "2026-05-18", Source: "ask",
+		SrcLabel: "Generated", Rel: "med",
+		Title: "Iran war: latest", Sub: "...",
+		Meta: []string{}, Actions: []synth.Action{{Label: "Dismiss"}},
+	}
+
+	e := echo.New()
+	(&AskHandler{
+		AskFn: func(_ context.Context, _ string) (synth.Card, llm.Trace, []llm.MemoryCandidate, error) {
+			return stubCard, llm.Trace{Stopped: "ok"}, nil, nil
+		},
+		Cards:      cards,
+		Traces:     traces,
+		EventLog:   logtest.NewMemReader(),
+		TZ:         func() *time.Location { return time.UTC },
+		Now:        func() time.Time { return fixedNow },
+		AskCardTTL: ttl,
+		Log:        quietHandlerEntry(),
+	}).Register(e)
+
+	rr := postAsk(e, "what's the latest with iran war?")
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	got, err := cards.GetByID(context.Background(), "iran-war-ab12")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.NotNil(t, got.ExpiresAt, "persisted ask card must have ExpiresAt set")
+	require.WithinDuration(t, fixedNow.Add(ttl), *got.ExpiresAt, 2*time.Second,
+		"ExpiresAt must be approximately now + AskCardTTL")
+}
+
+// TestAskHandler_PersistsExpiresAt_DefaultTTL verifies the safe default
+// when AskCardTTL is zero (e.g. an older wiring path that didn't plumb
+// the config knob): the handler falls back to 6h rather than persisting
+// a NULL/zero expiry that would hide the card from the rail immediately.
+func TestAskHandler_PersistsExpiresAt_DefaultTTL(t *testing.T) {
+	db := openHandlerTestDB(t)
+	cards := &store.CardRepo{DB: db}
+	traces := &store.TraceRepo{DB: db}
+
+	fixedNow := time.Date(2026, 5, 18, 8, 0, 0, 0, time.UTC)
+	stubCard := synth.Card{
+		ID: "default-ttl-cd34", Date: "2026-05-18", Source: "ask",
+		SrcLabel: "Generated", Rel: "low",
+		Title: "x", Sub: "y",
+		Meta: []string{}, Actions: []synth.Action{{Label: "Dismiss"}},
+	}
+
+	e := echo.New()
+	(&AskHandler{
+		AskFn: func(_ context.Context, _ string) (synth.Card, llm.Trace, []llm.MemoryCandidate, error) {
+			return stubCard, llm.Trace{Stopped: "ok"}, nil, nil
+		},
+		Cards:    cards,
+		Traces:   traces,
+		EventLog: logtest.NewMemReader(),
+		TZ:       func() *time.Location { return time.UTC },
+		Now:      func() time.Time { return fixedNow },
+		Log:      quietHandlerEntry(),
+		// AskCardTTL deliberately left at zero
+	}).Register(e)
+
+	rr := postAsk(e, "ping")
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	got, err := cards.GetByID(context.Background(), "default-ttl-cd34")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.NotNil(t, got.ExpiresAt)
+	require.WithinDuration(t, fixedNow.Add(6*time.Hour), *got.ExpiresAt, 2*time.Second,
+		"zero AskCardTTL must fall back to a 6h default")
+}
+
 // TestAskHandler_NoExtractFnSkipsCleanly verifies the production-safe default:
 // an AskHandler without an ExtractFn (e.g. tests that only exercise the
 // answer path) does not panic and does not block on the extractDone channel

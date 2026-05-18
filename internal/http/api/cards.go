@@ -26,6 +26,7 @@ type CardsHandler struct {
 // Register attaches the cards routes to the Echo instance.
 func (h *CardsHandler) Register(e *echo.Echo) {
 	e.GET("/api/cards", h.list)
+	e.GET("/api/cards/archive", h.archive)
 	e.GET("/api/cards/:id/trace", h.trace)
 	e.GET("/api/traces/:id", h.traceByID)
 }
@@ -75,6 +76,37 @@ func (h *CardsHandler) list(c echo.Context) error {
 	if err != nil {
 		if h.Log != nil {
 			h.Log.WithError(err).WithField("date", date).Error("cards list failed")
+		}
+		return Internal(c, err)
+	}
+
+	out := cardsListResponse{Date: date, Cards: make([]cardDTO, 0, len(rows))}
+	for _, r := range rows {
+		out.Cards = append(out.Cards, toCardDTO(r))
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+// archive serves GET /api/cards/archive?date=YYYY-MM-DD. Returns every
+// card row for the given date with no visibility filters — dismissed,
+// snoozed, and expired ask cards all come back so the user can browse
+// what ever appeared on a given day. Defaults to today in the handler
+// TZ when ?date= is omitted.
+func (h *CardsHandler) archive(c echo.Context) error {
+	tz := tzFrom(h.TZ)
+	now := time.Now
+	if h.Now != nil {
+		now = h.Now
+	}
+	date := c.QueryParam("date")
+	if date == "" {
+		date = now().In(tz).Format("2006-01-02")
+	}
+
+	rows, err := h.Cards.ListAllByDate(c.Request().Context(), date)
+	if err != nil {
+		if h.Log != nil {
+			h.Log.WithError(err).WithField("date", date).Error("cards archive failed")
 		}
 		return Internal(c, err)
 	}

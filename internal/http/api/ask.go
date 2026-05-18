@@ -30,9 +30,10 @@ type AskHandler struct {
 	// Cards persists the produced Ask card so the CardFocus modal's
 	// /api/cards/:id/thread lookup resolves. Optional; nil → no
 	// persistence (the card still streams to the UI but follow-up
-	// chat will 404). Cards persisted here carry Origin="ask" and are
-	// kept out of the morning rail by ListByDate's `source != 'ask'`
-	// filter.
+	// chat will 404). Cards persisted here carry Origin="ask" and
+	// Source="ask"; ListByDate keeps them on the main rail until their
+	// ExpiresAt passes (configured via AskCardTTL), after which they
+	// remain in the table but only the archive view surfaces them.
 	Cards           *store.CardRepo
 	Traces          *store.TraceRepo
 	Memory          *store.MemoryRepo       // optional; nil → no consolidation (e.g. tests)
@@ -43,6 +44,10 @@ type AskHandler struct {
 	Now             func() time.Time
 	Deadline        time.Duration // HTTP outer deadline; 0 → 46s (1s over the 45s loop default)
 	ExtractDeadline time.Duration // detached extractor budget; 0 → reuse Deadline (or 45s default)
+	// AskCardTTL is how long persisted ask cards remain visible on the
+	// main rail before they age into the archive-only view. 0 → 6h
+	// default. Tests can stub a small value to exercise the boundary.
+	AskCardTTL      time.Duration
 	Log             *logrus.Entry
 	// Bus is the V2.4 typed eventbus. When non-nil, ask publishes
 	// synth.started / trace.step* / synth.delta* / synth.completed /
@@ -123,8 +128,21 @@ func (h *AskHandler) ask(c echo.Context) error {
 	// modal) can pin it for follow-up turns. Best-effort: a failure
 	// here doesn't fail the response — the card still reaches the UI
 	// over SSE + HTTP, only the chat affordance degrades.
+	//
+	// The persisted row carries ExpiresAt = now + AskCardTTL so
+	// CardRepo.ListByDate keeps it on the main rail for the configured
+	// window and then drops it from the rail (the row itself remains
+	// for the archive). storeCard handed to the bus / response does not
+	// carry ExpiresAt — the UI only consults it via the cards list.
+	askTTL := h.AskCardTTL
+	if askTTL <= 0 {
+		askTTL = 6 * time.Hour
+	}
+	expiresAt := now.Add(askTTL)
 	if h.Cards != nil && err == nil {
-		if upErr := h.Cards.Upsert(c.Request().Context(), []store.Card{storeCard(card, runID, date)}); upErr != nil && h.Log != nil {
+		persisted := storeCard(card, runID, date)
+		persisted.ExpiresAt = &expiresAt
+		if upErr := h.Cards.Upsert(c.Request().Context(), []store.Card{persisted}); upErr != nil && h.Log != nil {
 			h.Log.WithError(upErr).WithField("card_id", card.ID).Warn("ask: persist card failed")
 		}
 	}

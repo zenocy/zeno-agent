@@ -49,6 +49,14 @@ type Card struct {
 	// match against the concern_observations join. Existing rows back-fill
 	// nil; AutoMigrate adds the column on next boot.
 	ConcernID *string `gorm:"type:text;index"              json:"concern_id,omitempty"`
+
+	// ExpiresAt is set for reactive ask cards so ListByDate hides them
+	// from the main rail after the configured TTL while leaving the row
+	// in the table for the archive view. NULL means "never on the main
+	// rail" (legacy ask rows from before this field existed) for ask
+	// cards, and is irrelevant for non-ask sources (which the filter
+	// admits unconditionally).
+	ExpiresAt *time.Time `gorm:"index" json:"expires_at,omitempty"`
 }
 
 // CardRepo persists and reads Card rows. The Table field controls which
@@ -118,8 +126,9 @@ func (r *CardRepo) DeleteStale(ctx context.Context, date, runID string) error {
 }
 
 // ListByDate returns visible cards for the given date: excludes dismissed
-// cards, cards snoozed on this date, and any reactive ask rows that may
-// linger from older versions (current code never persists them). Ordered
+// cards, cards snoozed on this date, and ask cards whose ExpiresAt has
+// passed (or that have no ExpiresAt at all, which means a legacy ask row
+// from before the TTL field existed — treat as already expired). Ordered
 // high→med→low by rel then by created_at as tie-breaker.
 func (r *CardRepo) ListByDate(ctx context.Context, date string) ([]Card, error) {
 	var out []Card
@@ -127,8 +136,28 @@ func (r *CardRepo) ListByDate(ctx context.Context, date string) ([]Card, error) 
 	// rows. Snoozed pinned cards still respect the snooze for the day —
 	// pin doesn't override snooze, just date scope.
 	err := r.DB.WithContext(ctx).Table(r.tableName()).
-		Where("source != 'ask' AND dismissed = false AND (snoozed_date = '' OR snoozed_date != ?) AND (date = ? OR pinned = true)", date, date).
+		Where(
+			"(source != 'ask' OR (source = 'ask' AND expires_at IS NOT NULL AND expires_at > ?)) "+
+				"AND dismissed = false "+
+				"AND (snoozed_date = '' OR snoozed_date != ?) "+
+				"AND (date = ? OR pinned = true)",
+			time.Now(), date, date,
+		).
 		Order("pinned DESC, CASE rel WHEN 'high' THEN 0 WHEN 'med' THEN 1 WHEN 'low' THEN 2 ELSE 3 END ASC, created_at ASC").
+		Find(&out).Error
+	return out, err
+}
+
+// ListAllByDate returns every card row for the given date with no
+// visibility filters — dismissed, snoozed, and expired ask cards all
+// come back. Backs the archive view, which is intentionally a
+// complete record of what ever appeared on a given day. Ordered by
+// CreatedAt DESC so the most recently produced cards appear first.
+func (r *CardRepo) ListAllByDate(ctx context.Context, date string) ([]Card, error) {
+	var out []Card
+	err := r.DB.WithContext(ctx).Table(r.tableName()).
+		Where("date = ?", date).
+		Order("created_at DESC").
 		Find(&out).Error
 	return out, err
 }

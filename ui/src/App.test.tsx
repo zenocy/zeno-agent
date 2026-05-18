@@ -166,4 +166,49 @@ describe("App — deep_work hides RightRail by default", () => {
       expect((screen.getByLabelText(/^City$/) as HTMLInputElement).value).toBe("Athens")
     );
   });
+
+  it("clicking the Archive nav button switches to the ArchivePanel and hits /api/cards/archive", async () => {
+    const fetchSpy = vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.startsWith("/api/briefing")) {
+        return Promise.resolve(jsonResponse({
+          date: "2026-05-18", eyebrow: "now", title: "T", summary: "S",
+          tension: 30, state: "morning_calm",
+        }));
+      }
+      if (url.startsWith("/api/cards/archive")) {
+        return Promise.resolve(jsonResponse({ date: "2026-05-18", cards: [] }));
+      }
+      if (url.startsWith("/api/cards")) {
+        return Promise.resolve(jsonResponse({ date: "2026-05-18", cards: [] }));
+      }
+      if (url.startsWith("/api/projections/calendar/")) {
+        return Promise.resolve(jsonResponse([]));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const user = userEvent.setup();
+    render(withProviders(<App />));
+
+    await screen.findByText("Today");
+
+    await user.click(screen.getByRole("button", { name: "Archive" }));
+
+    // ArchivePanel's "Archive" header is unique — confirms route flipped.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "Archive" }),
+      ).toBeInTheDocument(),
+    );
+    // And it called the new archive endpoint.
+    await waitFor(() => {
+      const called = fetchSpy.mock.calls.some(([input]) => {
+        const url = typeof input === "string" ? input : (input as URL).toString();
+        return url.startsWith("/api/cards/archive?date=");
+      });
+      expect(called).toBe(true);
+    });
+  });
 });
