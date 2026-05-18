@@ -8,14 +8,11 @@
 
 services:
   zeno:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
-    image: zeno:latest
+    image: ghcr.io/zenocy/zeno-agent:latest
     container_name: zeno
     restart: unless-stopped
     ports:
-      - "127.0.0.1:7777:7777"
+      - 7777:7777
     volumes:
       - ./data:/data
       - ./config.yaml:/config.yaml:ro
