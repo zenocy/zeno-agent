@@ -9,6 +9,7 @@ import {
   User,
   Settings,
   Activity,
+  LogOut,
 } from "lucide-react";
 import { useBriefing } from "./api/useBriefing";
 import { useCards } from "./api/useCards";
@@ -156,6 +157,25 @@ function LeftNav({ currentPage, onNavigate, onOpenAnchor }: LeftNavProps) {
           />
         )}
         <Settings className="h-4 w-4" />
+      </button>
+
+      <button
+        type="button"
+        title="Sign out"
+        aria-label="Sign out"
+        onClick={async () => {
+          try {
+            await fetch("/api/auth/logout", {
+              method: "POST",
+              credentials: "same-origin",
+            });
+          } finally {
+            window.location.reload();
+          }
+        }}
+        className={navBtn(false)}
+      >
+        <LogOut className="h-4 w-4" />
       </button>
 
       {/* Avatar */}

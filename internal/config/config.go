@@ -4,8 +4,13 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -13,6 +18,7 @@ import (
 // Config is the full Zeno configuration.
 type Config struct {
 	Server      ServerConfig      `mapstructure:"server"`
+	Auth        AuthConfig        `mapstructure:"auth"`
 	Logging     LoggingConfig     `mapstructure:"logging"`
 	DB          DBConfig          `mapstructure:"db"`
 	LLM         LLMConfig         `mapstructure:"llm"`
@@ -25,6 +31,27 @@ type Config struct {
 	Reminders   RemindersConfig   `mapstructure:"reminders"`
 	Metrics     MetricsConfig     `mapstructure:"metrics"`
 	Web         WebConfig         `mapstructure:"web"`
+}
+
+// AuthConfig configures the cookie-based login that gates the browser UI
+// and the /api/* surface. Single user — credentials are kept in YAML.
+//
+// When Enabled is false the server falls back to the pre-V2.14 behavior
+// (loopback-only or LANToken bearer); flip Enabled=false to recover access
+// if a hash is mistyped.
+//
+// SessionSecret is the HMAC key gorilla/sessions uses to sign the cookie's
+// session-id payload. If empty at startup, a random 32-byte key is written
+// to <db-dir>/session.key and reused on subsequent boots so existing
+// sessions survive a restart.
+type AuthConfig struct {
+	Enabled       bool          `mapstructure:"enabled"`        // default true
+	Username      string        `mapstructure:"username"`
+	PasswordHash  string        `mapstructure:"password_hash"`  // bcrypt; produced by `zeno hash-password`
+	SessionTTL    time.Duration `mapstructure:"session_ttl"`    // default 720h (30 days)
+	CookieName    string        `mapstructure:"cookie_name"`    // default "zeno_session"
+	CookieSecure  bool          `mapstructure:"cookie_secure"`  // set true behind TLS
+	SessionSecret string        `mapstructure:"session_secret"` // empty → auto-generated and persisted
 }
 
 // RemindersConfig controls how the V2.9 reminder sweeper dispatches
@@ -309,7 +336,62 @@ func Load(path string) (*Config, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("decode config: %w", err)
 	}
+	if err := finalizeAuth(&cfg); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+// finalizeAuth validates the AuthConfig and bootstraps the session secret.
+// Split out from Load so tests can exercise it on a hand-built Config.
+//
+// When auth is disabled we skip the secret bootstrap entirely — no session
+// middleware will be mounted, so a key on disk would be dead weight (and
+// would surprise users with a `data/session.key` file they didn't ask for).
+func finalizeAuth(cfg *Config) error {
+	if !cfg.Auth.Enabled {
+		return nil
+	}
+	if cfg.Auth.Username == "" || cfg.Auth.PasswordHash == "" {
+		return fmt.Errorf("auth.enabled=true requires auth.username and auth.password_hash (run `zeno hash-password` to generate the hash)")
+	}
+	if cfg.Auth.SessionSecret == "" {
+		secret, err := loadOrCreateSessionSecret(cfg.DB.Path)
+		if err != nil {
+			return fmt.Errorf("auth: bootstrap session secret: %w", err)
+		}
+		cfg.Auth.SessionSecret = secret
+	}
+	return nil
+}
+
+// loadOrCreateSessionSecret reads <db-dir>/session.key, creating it with
+// a fresh 32-byte hex-encoded secret on first boot. Persisting the key on
+// disk lets the cookie HMAC survive restarts so users stay logged in.
+func loadOrCreateSessionSecret(dbPath string) (string, error) {
+	dir := filepath.Dir(dbPath)
+	if dir == "" || dir == "." {
+		dir = "./data"
+	}
+	keyPath := filepath.Join(dir, "session.key")
+	if b, err := os.ReadFile(keyPath); err == nil {
+		s := strings.TrimSpace(string(b))
+		if s != "" {
+			return s, nil
+		}
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("read random: %w", err)
+	}
+	secret := hex.EncodeToString(raw)
+	if err := os.WriteFile(keyPath, []byte(secret+"\n"), 0o600); err != nil {
+		return "", fmt.Errorf("write %s: %w", keyPath, err)
+	}
+	return secret, nil
 }
 
 func setDefaults(v *viper.Viper) {
@@ -318,6 +400,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.read_timeout_sec", 30)
 	v.SetDefault("server.write_timeout_sec", 0) // 0 = no server-level timeout; route-level deadlines apply
 	v.SetDefault("server.shutdown_sec", 10)
+
+	v.SetDefault("auth.enabled", true)
+	v.SetDefault("auth.session_ttl", "720h") // 30 days
+	v.SetDefault("auth.cookie_name", "zeno_session")
+	v.SetDefault("auth.cookie_secure", false)
 
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "text")

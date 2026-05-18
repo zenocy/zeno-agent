@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"github.com/wader/gormstore/v2"
 	"gorm.io/gorm"
 
 	"github.com/zenocy/zeno-v2/internal/clock"
@@ -87,6 +88,12 @@ type HarnessConfig struct {
 	// is created. Both nil → no inject/SSE wiring (default).
 	WithInject schedule.InjectFunc
 	Bus        *eventbus.Bus
+
+	// V2.14: cookie login. Auth.Enabled wires the session middleware and
+	// AuthHandler; the harness will also accept LANToken simultaneously
+	// (matches production behavior). Default (zero value) leaves auth off
+	// so the existing system tests don't have to authenticate.
+	Auth HarnessAuth
 }
 
 // Harness ties together every Phase 1 component for a single test.
@@ -111,6 +118,11 @@ type Harness struct {
 	// simulate the real inject orchestrator; SSE subscribers receive
 	// what gets published.
 	Bus *eventbus.Bus
+
+	// authStore is non-nil when V2.14 cookie auth was enabled on this
+	// harness. Tests use it (via helper accessors) to age sessions or
+	// peek at row counts.
+	authStore *gormstore.Store
 }
 
 // NewHarness builds the Harness. The caller calls Close() when done.
@@ -222,7 +234,11 @@ func NewHarness(t *testing.T, cfg HarnessConfig) *Harness {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
-	if cfg.LANToken != "" {
+	authStore := installAuth(t, e, db, cfg.Auth, logger)
+	if !cfg.Auth.Enabled && cfg.LANToken != "" {
+		// Legacy bearer-only path retained for tests that exercise the
+		// pre-auth surface. When Auth.Enabled is true the unified
+		// middleware in installAuth already handles bearer fallback.
 		e.Use(bearerOnAPI(cfg.LANToken))
 	}
 	(&api.ProjectionsHandler{Reader: store, Cfg: projCfg, Log: logger.WithField("c", "proj")}).Register(e)
@@ -261,6 +277,7 @@ func NewHarness(t *testing.T, cfg HarnessConfig) *Harness {
 		IMAP: fimap, CalDAV: fcaldav, Weather: weatherSrv,
 		TZ: tz, now: now, dbPath: dbPath, Bus: bus,
 		Settings: settingsSvc, SettingsRepo: settingsRepo, Geocoder: geocoder,
+		authStore: authStore,
 	}
 	if cfg.WithBootPrime {
 		go func() { _ = sched.SyncAll(context.Background()) }()

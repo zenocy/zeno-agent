@@ -19,6 +19,13 @@ func BadRequest(c echo.Context, msg string) error {
 	return c.JSON(http.StatusBadRequest, errBody(msg))
 }
 
+// Unauthorized returns a 401 with {"error": msg}. The auth surface emits
+// this directly; protected endpoints rely on the auth middleware to send
+// 401s for them, so most handlers will not need this helper.
+func Unauthorized(c echo.Context, msg string) error {
+	return c.JSON(http.StatusUnauthorized, errBody(msg))
+}
+
 // NotFound returns a 404 with {"error": msg}.
 func NotFound(c echo.Context, msg string) error {
 	return c.JSON(http.StatusNotFound, errBody(msg))

@@ -109,6 +109,8 @@ server:
   bind: 127.0.0.1
   port: 7777
   lan_token: secret-xyz
+auth:
+  enabled: false
 db:
   path: ./data/zeno.db
 llm:

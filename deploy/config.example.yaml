@@ -6,11 +6,35 @@ server:
   bind: 127.0.0.1            # 0.0.0.0 to expose on LAN (set lan_token below)
                              # Override at runtime: zeno serve --bind 0.0.0.0
   port: 7777
-  lan_token: ""              # bearer token required on /api/* when bound off-loopback
-                             # Override at runtime: zeno serve --lan-token <secret>
+  lan_token: ""              # bearer token still accepted on /api/* alongside the
+                             # cookie session below — used by the docker health
+                             # check and LAN scripts. Override at runtime:
+                             # `zeno serve --lan-token <secret>`.
   read_timeout_sec: 30
   write_timeout_sec: 0    # 0 = disabled; route-level deadlines apply (needed for reactive Ask)
   shutdown_sec: 10
+
+# V2.14 cookie login. Gates the browser UI and /api/*. Single user — the
+# username + bcrypt hash live here; the session cookie itself is signed
+# with `session_secret` (auto-generated into <db-dir>/session.key when
+# left empty, so sessions survive restarts).
+#
+# Generate a hash by running:
+#   docker compose run --rm zeno /app/zeno hash-password
+# (or `go run ./cmd/zeno hash-password` locally), then paste the line of
+# output into `password_hash` below.
+#
+# Set `enabled: false` to disable the login entirely and fall back to the
+# pre-V2.14 behavior (loopback-only or LANToken bearer). Useful as an
+# emergency rollback if a hash is mistyped.
+auth:
+  enabled: true
+  username: ""              # required when enabled: true
+  password_hash: ""         # bcrypt; required when enabled: true
+  session_ttl: 720h         # 30 days; how long a "remember me" cookie lasts
+  cookie_name: zeno_session # change only if it collides with another app
+  cookie_secure: false      # set true when serving over HTTPS / behind TLS
+  session_secret: ""        # empty → auto-generated into data/session.key
 
 logging:
   level: info                # debug | info | warn | error

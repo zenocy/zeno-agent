@@ -91,6 +91,8 @@ rules and cards-bias overlays live in `prompts/_voice.md`; the
 
 ```bash
 cp deploy/config.example.yaml deploy/config.yaml   # then edit
+docker compose -f deploy/docker-compose.yml run --rm zeno /app/zeno hash-password
+                                                   # paste the hash into auth.password_hash
 docker compose -f deploy/docker-compose.yml up -d
 open http://localhost:7777
 ```
@@ -112,6 +114,42 @@ You'll need:
 Everything else — WhatsApp pairing, CardDAV contacts, reminder
 dispatch, LAN exposure, tuning knobs — is documented inline in
 [`deploy/config.example.yaml`](deploy/config.example.yaml).
+
+## Authentication
+
+The UI and the `/api/*` surface are gated by a single-user cookie
+login. Credentials live in `config.yaml` under the `auth:` block:
+
+```yaml
+auth:
+  enabled: true
+  username: you
+  password_hash: "$2a$10$…"   # produced by `zeno hash-password`
+  session_ttl: 720h            # 30 days
+  cookie_secure: false         # set true when serving over HTTPS
+```
+
+Generate the hash interactively, then paste it into
+`auth.password_hash`:
+
+```bash
+# In a running container:
+docker compose -f deploy/docker-compose.yml exec zeno /app/zeno hash-password
+
+# Or locally before first boot:
+go run ./cmd/zeno hash-password
+```
+
+Sessions are persisted in the same SQLite database as everything else,
+so a `docker compose restart` keeps you signed in. The cookie itself is
+signed with `auth.session_secret`; leave it empty and the server
+auto-generates one into `data/session.key` on first boot.
+
+`server.lan_token` still works alongside the cookie — useful for the
+docker `HEALTHCHECK` and any LAN scripts that hit `/api/*` with
+`Authorization: Bearer <token>`. To disable the login entirely (e.g. on
+a trusted loopback-only box, or as an emergency rollback), set
+`auth.enabled: false`.
 
 ## Develop
 

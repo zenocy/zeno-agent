@@ -13,13 +13,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
 
+	gsessions "github.com/gorilla/sessions"
 	"github.com/sirupsen/logrus"
+	"github.com/wader/gormstore/v2"
 	"gorm.io/gorm"
 
 	"github.com/zenocy/zeno-v2/internal/action"
@@ -29,6 +32,7 @@ import (
 	"github.com/zenocy/zeno-v2/internal/eventbus"
 	httpserver "github.com/zenocy/zeno-v2/internal/http"
 	"github.com/zenocy/zeno-v2/internal/http/api"
+	httpmw "github.com/zenocy/zeno-v2/internal/http/middleware"
 	"github.com/zenocy/zeno-v2/internal/injectsub"
 	"github.com/zenocy/zeno-v2/internal/jina"
 	"github.com/zenocy/zeno-v2/internal/llm"
@@ -71,8 +75,10 @@ func main() {
 		runMemory(args)
 	case "concerns":
 		runConcerns(args)
+	case "hash-password":
+		runHashPassword(args)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown subcommand %q. Use 'serve', 'replay', 'memory', 'concerns', or 'health'.\n", sub)
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q. Use 'serve', 'replay', 'memory', 'concerns', 'hash-password', or 'health'.\n", sub)
 		os.Exit(2)
 	}
 }
@@ -383,10 +389,47 @@ func runServe(args []string) {
 		srvCfg.MetricsObserver = bc.metrics.ObserveHTTP
 		srvCfg.MetricsSlow = bc.metrics.MarkHTTPSlow
 	}
+
+	// V2.14 cookie auth. When enabled, mount the gormstore-backed session
+	// store and configure the unified auth middleware. The PeriodicCleanup
+	// goroutine drops expired session rows; quitCh is closed at shutdown.
+	authQuitCh := make(chan struct{})
+	if bc.cfg.Auth.Enabled {
+		store := gormstore.New(bc.db, []byte(bc.cfg.Auth.SessionSecret))
+		store.SessionOpts = &gsessions.Options{
+			Path:     "/",
+			MaxAge:   int(bc.cfg.Auth.SessionTTL.Seconds()),
+			HttpOnly: true,
+			Secure:   bc.cfg.Auth.CookieSecure,
+			SameSite: http.SameSiteLaxMode,
+		}
+		store.MaxAge(int(bc.cfg.Auth.SessionTTL.Seconds()))
+		go store.PeriodicCleanup(1*time.Hour, authQuitCh)
+		srvCfg.SessionStore = store
+		srvCfg.Auth = httpmw.AuthConfig{
+			Enabled:    true,
+			Username:   bc.cfg.Auth.Username,
+			CookieName: bc.cfg.Auth.CookieName,
+			LANToken:   bc.cfg.Server.LANToken,
+			SessionTTL: bc.cfg.Auth.SessionTTL,
+		}
+		bc.logger.WithField("username", bc.cfg.Auth.Username).Info("auth: cookie login enabled")
+	}
+	defer close(authQuitCh)
+
 	srv := httpserver.New(srvCfg, bc.logger)
 
 	healthStartedAt := time.Now()
 	(&api.HealthHandler{DB: bc.db, LLM: bc.llm, Reader: bc.store, StartedAt: healthStartedAt}).Register(srv.Echo)
+
+	if bc.cfg.Auth.Enabled {
+		(&api.AuthHandler{
+			Username:     bc.cfg.Auth.Username,
+			PasswordHash: bc.cfg.Auth.PasswordHash,
+			CookieName:   bc.cfg.Auth.CookieName,
+			Log:          bc.logger.WithField("c", "auth"),
+		}).Register(srv.Echo)
+	}
 
 	if bc.metrics != nil {
 		(&api.MetricsHandler{Metrics: bc.metrics, Reader: bc.store}).Register(srv.Echo)

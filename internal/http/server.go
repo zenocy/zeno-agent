@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/sessions"
+	echocontribsession "github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 
@@ -24,6 +26,15 @@ type ServerConfig struct {
 	HTTPSlowMs      time.Duration // 2xx ≥ this duration logs at INFO with slow=true; faster 2xx logs at DEBUG
 	MetricsObserver mw.HTTPObserver
 	MetricsSlow     mw.SlowMarker
+
+	// Auth and SessionStore are populated for the V2.14 cookie-login
+	// surface. When SessionStore is non-nil the echo-contrib session
+	// middleware is mounted and the unified Auth middleware (cookie OR
+	// LANToken) gates /api/*. When SessionStore is nil the server falls
+	// back to the legacy LANToken-only behavior, preserving the rollback
+	// path for `auth.enabled: false`.
+	Auth         mw.AuthConfig
+	SessionStore sessions.Store
 }
 
 // Server wraps an Echo instance with lifecycle management.
@@ -51,7 +62,10 @@ func New(cfg ServerConfig, logger *logrus.Logger) *Server {
 		Slow:    cfg.MetricsSlow,
 	}))
 
-	if cfg.LANToken != "" {
+	if cfg.SessionStore != nil {
+		e.Use(echocontribsession.Middleware(cfg.SessionStore))
+		e.Use(mw.Auth(cfg.Auth))
+	} else if cfg.LANToken != "" {
 		e.Use(bearerMiddleware(cfg.LANToken))
 	}
 
