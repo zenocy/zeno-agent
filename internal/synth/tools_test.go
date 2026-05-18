@@ -46,6 +46,80 @@ func TestReadThreadTool_FindsBySubjectSubstring(t *testing.T) {
 	require.NotContains(t, out, "lunch tomorrow")
 }
 
+// TestReadThreadTool_ReturnsFullBodyUpTo6KB covers the V2.x bump: the
+// body preview returned by the tool is now ~6KB (vs. 1500 chars
+// previously). The `document` SubCard kind depends on this — a 2KB
+// homework email must reach the model in full so it can reproduce
+// every day's schedule.
+func TestReadThreadTool_ReturnsFullBodyUpTo6KB(t *testing.T) {
+	store := openToolsLog(t)
+	ctx := context.Background()
+	now := time.Date(2026, 5, 18, 8, 0, 0, 0, time.UTC)
+
+	// 3KB of body — well above the prior 1500-char truncation point.
+	body := ""
+	for i := 0; i < 60; i++ {
+		body += "Monday Greek: page 57. Tuesday Maths: halves. Wednesday Greek: page 58.\n"
+	}
+	require.Greater(t, len(body), 1500, "test fixture must exceed the prior truncation")
+
+	_, err := store.Append(ctx, log.KindMailReceived, "imap", map[string]any{
+		"subject":      "Homework Week of 18 May",
+		"from":         "Miss Despoina",
+		"date":         now.Add(-1 * time.Hour),
+		"body_preview": body,
+	})
+	require.NoError(t, err)
+
+	tool := &ReadThreadTool{Reader: store, Now: func() time.Time { return now }}
+	out, err := tool.Execute(ctx, map[string]any{"subject_hint": "homework"})
+	require.NoError(t, err)
+	// Body must reach the model in full (or up to 6000 chars) — the
+	// "Wednesday Greek" substring sits well past the old 1500 cap.
+	require.Contains(t, out, "Wednesday Greek: page 58", "body preview must extend beyond 1500 chars")
+}
+
+// TestFindLatestThread covers the helper shared between ReadThreadTool
+// and the /api/threads/preview endpoint: substring match by subject,
+// most-recent wins, 14-day default lookback, ok=false on no match.
+func TestFindLatestThread(t *testing.T) {
+	store := openToolsLog(t)
+	ctx := context.Background()
+	now := time.Date(2026, 5, 18, 8, 0, 0, 0, time.UTC)
+
+	_, err := store.Append(ctx, log.KindMailReceived, "imap", map[string]any{
+		"subject":      "Homework Week of 11 May",
+		"from":         "Miss Despoina",
+		"date":         now.Add(-7 * 24 * time.Hour),
+		"body_preview": "older content",
+	})
+	require.NoError(t, err)
+	_, err = store.Append(ctx, log.KindMailReceived, "imap", map[string]any{
+		"subject":      "Homework Week of 18 May",
+		"from":         "Miss Despoina",
+		"date":         now.Add(-1 * time.Hour),
+		"body_preview": "newer content",
+	})
+	require.NoError(t, err)
+
+	hit, ok, err := FindLatestThread(ctx, store, "HOMEWORK", 0, now)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "Homework Week of 18 May", hit.Subject)
+	require.Equal(t, "newer content", hit.BodyPreview)
+	require.Equal(t, 2, hit.MessageCount, "should count both matching messages")
+
+	// Unknown hint → ok=false (the endpoint maps this to 404).
+	_, ok, err = FindLatestThread(ctx, store, "vacation", 0, now)
+	require.NoError(t, err)
+	require.False(t, ok)
+
+	// Empty hint → ok=false (the endpoint maps this to 400).
+	_, ok, err = FindLatestThread(ctx, store, "  ", 0, now)
+	require.NoError(t, err)
+	require.False(t, ok)
+}
+
 func TestReadThreadTool_EmptyHintRejected(t *testing.T) {
 	tool := &ReadThreadTool{Reader: openToolsLog(t)}
 	_, err := tool.Execute(context.Background(), map[string]any{"subject_hint": ""})

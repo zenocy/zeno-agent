@@ -42,7 +42,7 @@ type ReadThreadTool struct {
 func (t *ReadThreadTool) Name() string { return "read_thread" }
 
 func (t *ReadThreadTool) Description() string {
-	return "Find one email thread by subject substring. Returns sender, last reply time, message count, and a body preview."
+	return "Find one email thread by subject substring. Returns sender, last reply time, message count, and the body preview (up to ~6KB) of the most recent message."
 }
 
 func (t *ReadThreadTool) Parameters() []llm.ToolParamSpec {
@@ -54,31 +54,38 @@ func (t *ReadThreadTool) Parameters() []llm.ToolParamSpec {
 	}}
 }
 
-func (t *ReadThreadTool) Execute(ctx context.Context, args map[string]any) (string, error) {
-	hint := argString(args, "subject_hint")
-	if hint == "" {
-		return "", fmt.Errorf("subject_hint is required")
-	}
-	now := t.now()
-	lookback := t.Lookback
+// ThreadHit is the single-thread result FindLatestThread returns: the most
+// recent mail.received event whose subject contains the hint, plus the
+// number of messages with the same hint in the lookback window.
+type ThreadHit struct {
+	Subject      string
+	From         string
+	Date         time.Time
+	BodyPreview  string
+	MessageCount int
+}
+
+// FindLatestThread is the shared matching logic both the read_thread tool
+// and the /api/threads/preview endpoint use. Scans mail.received events
+// within `lookback` (defaulting to 14d when ≤0), returns the latest
+// subject-substring match. `ok=false` when nothing matched.
+func FindLatestThread(ctx context.Context, reader log.Reader, hint string, lookback time.Duration, now time.Time) (ThreadHit, bool, error) {
 	if lookback <= 0 {
 		lookback = 14 * 24 * time.Hour
 	}
 	since := now.Add(-lookback)
 
-	events, err := t.Reader.ByKind(ctx, log.KindMailReceived)
+	events, err := reader.ByKind(ctx, log.KindMailReceived)
 	if err != nil {
-		return "", err
+		return ThreadHit{}, false, err
 	}
 
-	type msg struct {
-		Subject     string
-		From        string
-		Date        time.Time
-		BodyPreview string
+	hintLower := strings.ToLower(strings.TrimSpace(hint))
+	if hintLower == "" {
+		return ThreadHit{}, false, nil
 	}
-	var matches []msg
-	hintLower := strings.ToLower(hint)
+
+	var matches []ThreadHit
 	for _, e := range events {
 		if e.TS.Before(since) {
 			continue
@@ -99,7 +106,7 @@ func (t *ReadThreadTool) Execute(ctx context.Context, args map[string]any) (stri
 		if when.IsZero() {
 			when = e.TS
 		}
-		matches = append(matches, msg{
+		matches = append(matches, ThreadHit{
 			Subject:     p.Subject,
 			From:        p.From,
 			Date:        when,
@@ -108,18 +115,35 @@ func (t *ReadThreadTool) Execute(ctx context.Context, args map[string]any) (stri
 	}
 
 	if len(matches) == 0 {
-		return fmt.Sprintf("No thread found whose subject contains %q.", hint), nil
+		return ThreadHit{}, false, nil
 	}
 
 	sort.SliceStable(matches, func(i, j int) bool { return matches[i].Date.Before(matches[j].Date) })
 	last := matches[len(matches)-1]
+	last.MessageCount = len(matches)
+	return last, true, nil
+}
 
-	preview := truncate(last.BodyPreview, 1500)
+func (t *ReadThreadTool) Execute(ctx context.Context, args map[string]any) (string, error) {
+	hint := argString(args, "subject_hint")
+	if hint == "" {
+		return "", fmt.Errorf("subject_hint is required")
+	}
+
+	hit, ok, err := FindLatestThread(ctx, t.Reader, hint, t.Lookback, t.now())
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return fmt.Sprintf("No thread found whose subject contains %q.", hint), nil
+	}
+
+	preview := truncate(hit.BodyPreview, 6000)
 	out := fmt.Sprintf(
 		"Thread: %s\nLast sender: %s\nLast received: %s\nMessages in window: %d\nLast body preview:\n%s",
-		last.Subject, last.From, last.Date.Format(time.RFC3339), len(matches), preview,
+		hit.Subject, hit.From, hit.Date.Format(time.RFC3339), hit.MessageCount, preview,
 	)
-	return capOutput(out, 4096), nil
+	return capOutput(out, 8192), nil
 }
 
 func (t *ReadThreadTool) now() time.Time {

@@ -11,7 +11,9 @@ import type {
   Card as CardData,
 } from "../types";
 import { useAction } from "../api/useAction";
+import { useThreadPreview } from "../api/useThreadPreview";
 import { useIntentModes, modeFor } from "../hooks/useIntentModes";
+import { renderMarkdownBlocks } from "../lib/markdownBlocks";
 import { ActionConfirmModal } from "./ActionConfirmModal";
 import { Card as CardComponent } from "./Card";
 import { useToast } from "./Toast";
@@ -140,6 +142,13 @@ export function SubCard({ cardId, reply }: Props) {
         )}
         {reply.kind === "research" && (
           <SubResearchBlock body={reply.body ?? ""} sources={reply.sources} />
+        )}
+        {reply.kind === "document" && (
+          <SubDocumentBlock
+            body={reply.body ?? ""}
+            from={reply.from}
+            threadHint={reply.thread_hint}
+          />
         )}
         {reply.kind === "answer" && (
           <p className="text-[14px] leading-[1.6] text-ink m-0">{reply.body}</p>
@@ -584,6 +593,73 @@ function SubDraftBlock({ body, meta }: { body: string; meta?: string }) {
         <div className="mt-2 font-mono text-[10.5px] uppercase tracking-[.04em] text-ink-4 lowercase">
           {meta}
         </div>
+      )}
+    </div>
+  );
+}
+
+// SubDocumentBlock renders a `kind=document` reply: lightly-restructured
+// markdown of the source content, with a "view original" toggle that
+// lazily fetches the verbatim email body from the durable log.
+function SubDocumentBlock({
+  body,
+  from,
+  threadHint,
+}: {
+  body: string;
+  from?: string;
+  threadHint?: string;
+}) {
+  const [mode, setMode] = useState<"formatted" | "original">("formatted");
+  const canToggle = !!threadHint;
+  const preview = useThreadPreview(threadHint, canToggle && mode === "original");
+
+  function toggle() {
+    if (!canToggle) return;
+    setMode((m) => (m === "formatted" ? "original" : "formatted"));
+  }
+
+  return (
+    <div>
+      {(from || canToggle) && (
+        <div className="flex justify-between items-baseline mb-3 gap-3">
+          {from ? (
+            <span className="font-mono text-[10.5px] uppercase tracking-[.06em] text-ink-4">
+              from {from}
+            </span>
+          ) : (
+            <span />
+          )}
+          {canToggle && (
+            <button
+              type="button"
+              onClick={toggle}
+              className="font-mono text-[10.5px] uppercase tracking-[.06em] text-ink-4 hover:text-ink-2 transition-colors"
+            >
+              {mode === "formatted" ? "view original →" : "← back to formatted"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {mode === "formatted" && renderMarkdownBlocks(body)}
+
+      {mode === "original" && (
+        <>
+          {preview.isLoading && (
+            <p className="m-0 text-[12.5px] text-ink-4 italic">loading original…</p>
+          )}
+          {preview.isError && (
+            <p className="m-0 text-[12.5px] text-ink-3">
+              Couldn't load the original.
+            </p>
+          )}
+          {preview.data && (
+            <pre className="m-0 px-4 py-3.5 bg-bg-elev rounded-[6px] text-[13px] leading-[1.55] text-ink-2 whitespace-pre-wrap break-words border-l-2 border-ink-5 font-sans">
+              {preview.data.body}
+            </pre>
+          )}
+        </>
       )}
     </div>
   );

@@ -207,6 +207,43 @@ func TestBriefingSchema_Validates(t *testing.T) {
 	require.Error(t, ValidateJSON(BriefingSchema(), []byte(stubTitle)))
 }
 
+// TestSubCardSchema_DocumentKind verifies the V2.x document kind: a
+// SubCard whose `kind=document` carries a markdown body, optional From
+// header, and optional ThreadHint pointer that the UI's "view original"
+// toggle uses to refetch the verbatim email body. The schema accepts
+// the new kind alongside the legacy four.
+func TestSubCardSchema_DocumentKind(t *testing.T) {
+	good := `{
+	  "id": "sub-doc1",
+	  "kind": "document",
+	  "eyebrow": "document · miss despoina",
+	  "title": "Homework — week of 18 May",
+	  "body": "## Monday\n- Greek: page 57\n- Spelling words\n",
+	  "from": "Miss Despoina · Sun 18 May",
+	  "thread_hint": "homework"
+	}`
+	require.NoError(t, ValidateJSON(SubCardSchema(), []byte(good)))
+
+	// from over the 80-char ceiling must fail.
+	tooLongFrom := `{"id":"sub-doc2","kind":"document","eyebrow":"document","title":"Reply","from":"` + strings.Repeat("x", 81) + `"}`
+	require.Error(t, ValidateJSON(SubCardSchema(), []byte(tooLongFrom)))
+
+	// thread_hint over the 120-char ceiling must fail.
+	tooLongHint := `{"id":"sub-doc3","kind":"document","eyebrow":"document","title":"Reply","thread_hint":"` + strings.Repeat("y", 121) + `"}`
+	require.Error(t, ValidateJSON(SubCardSchema(), []byte(tooLongHint)))
+
+	// An unknown kind must still be rejected — the union is closed.
+	badKind := `{"id":"sub-x","kind":"diagram","eyebrow":"e","title":"Reply"}`
+	require.Error(t, ValidateJSON(SubCardSchema(), []byte(badKind)))
+
+	// The legacy four kinds still validate (regression guard for the enum
+	// expansion).
+	for _, kind := range []string{"calendar", "draft", "research", "answer"} {
+		legacy := `{"id":"sub-l","kind":"` + kind + `","eyebrow":"e","title":"Reply"}`
+		require.NoError(t, ValidateJSON(SubCardSchema(), []byte(legacy)), "kind=%s must still validate", kind)
+	}
+}
+
 func TestSchema_Marshalable(t *testing.T) {
 	// Both schemas must be JSON-marshalable so they can be sent as the
 	// OpenAI tool's function.parameters.

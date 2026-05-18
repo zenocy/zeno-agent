@@ -307,7 +307,7 @@ export interface RetrospectiveProgress {
 // the user has a multi-turn conversation against that card. Each turn
 // resolves to a typed SubCard reply, persisted on a per-card thread.
 
-export type SubCardKind = "calendar" | "draft" | "research" | "answer";
+export type SubCardKind = "calendar" | "draft" | "research" | "answer" | "document";
 
 // SubCardCalendar mirrors internal/synth/schema.go SubCalendar.
 // Title/when/where/who is the legacy minimal shape preserved for
@@ -398,9 +398,15 @@ export interface SubCard {
   draft?: string;
   draft_meta?: string;
 
-  // kind=research / answer
+  // kind=research / answer / document
   body?: string;
   sources?: SubCardSource[];
+
+  // kind=document — "{sender} · {short date}" header and the subject
+  // substring the model passed to read_thread. The UI uses thread_hint
+  // to fetch the verbatim original body for the "view original" toggle.
+  from?: string;
+  thread_hint?: string;
 }
 
 export interface ConversationTurn {

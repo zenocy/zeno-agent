@@ -101,12 +101,13 @@ type CardSet struct {
 //	draft    → Draft + optional DraftMeta
 //	research → Body + Sources
 //	answer   → Body
+//	document → Body (markdown) + optional From + optional ThreadHint
 //
 // Actions reuse the morning Card.Action vocabulary so the existing V2.8
 // action handler dispatches sub-card buttons unchanged.
 type SubCard struct {
 	ID      string   `json:"id"      zen:"required"`
-	Kind    string   `json:"kind"    zen:"required,enum=calendar|draft|research|answer"`
+	Kind    string   `json:"kind"    zen:"required,enum=calendar|draft|research|answer|document"`
 	Eyebrow string   `json:"eyebrow" zen:"required,maxlen=40"`
 	Title   string   `json:"title"   zen:"required,minlen=4,maxlen=120"`
 	Actions []Action `json:"actions,omitempty" zen:"maxitems=3"`
@@ -119,9 +120,16 @@ type SubCard struct {
 	Draft     string `json:"draft,omitempty"`
 	DraftMeta string `json:"draft_meta,omitempty"`
 
-	// kind=research / answer
+	// kind=research / answer / document
 	Body    string           `json:"body,omitempty"`
 	Sources []ResearchSource `json:"sources,omitempty"`
+
+	// kind=document — From is a "{sender} · {short date}" header shown
+	// above the rendered markdown. ThreadHint is the same subject
+	// substring the model passed to read_thread; the UI uses it to
+	// refetch the verbatim body for the "view original" toggle.
+	From       string `json:"from,omitempty"        zen:"maxlen=80"`
+	ThreadHint string `json:"thread_hint,omitempty" zen:"maxlen=120"`
 }
 
 // SubCalendar is the calendar-flavored reply payload.

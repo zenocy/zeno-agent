@@ -504,6 +504,11 @@ func runServe(args []string) {
 		Now:    time.Now,
 		Log:    bc.logger.WithField("c", "cards"),
 	}).Register(srv.Echo)
+	(&api.ThreadsHandler{
+		Reader: bc.store,
+		Now:    time.Now,
+		Log:    bc.logger.WithField("c", "threads"),
+	}).Register(srv.Echo)
 
 	reactiveDeadline := time.Duration(bc.cfg.LLM.ReactiveDeadlineSec) * time.Second
 	cardsTimeout := time.Duration(bc.cfg.Synth.CardsTimeoutSec) * time.Second
@@ -682,6 +687,7 @@ func runServe(args []string) {
 		ExtractFn: func(ctx context.Context, query string) []llm.MemoryCandidate {
 			return synth.ExtractFacts(ctx, bc.llm, query, reactiveDeadline, bc.logger.WithField("c", "ask"))
 		},
+		Cards:           cardRepo,
 		Traces:          traceRepo,
 		Memory:          memoryRepo,
 		EmbeddingStore:  embStore,

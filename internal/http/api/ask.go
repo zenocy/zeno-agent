@@ -26,7 +26,14 @@ type AskHandler struct {
 	// query. Optional; nil → no extraction (e.g. tests). Invoked from a
 	// detached goroutine after the HTTP response is written so extraction
 	// latency never affects the answer's user-perceived latency.
-	ExtractFn       func(ctx context.Context, query string) []llm.MemoryCandidate
+	ExtractFn func(ctx context.Context, query string) []llm.MemoryCandidate
+	// Cards persists the produced Ask card so the CardFocus modal's
+	// /api/cards/:id/thread lookup resolves. Optional; nil → no
+	// persistence (the card still streams to the UI but follow-up
+	// chat will 404). Cards persisted here carry Origin="ask" and are
+	// kept out of the morning rail by ListByDate's `source != 'ask'`
+	// filter.
+	Cards           *store.CardRepo
 	Traces          *store.TraceRepo
 	Memory          *store.MemoryRepo       // optional; nil → no consolidation (e.g. tests)
 	EmbeddingStore  *embeddings.Store       // optional; updates vector cache after `remember:` consolidation
@@ -110,6 +117,16 @@ func (h *AskHandler) ask(c echo.Context) error {
 
 	if persistErr := h.persist(c.Request().Context(), runID, date, trace); persistErr != nil && h.Log != nil {
 		h.Log.WithError(persistErr).Warn("ask: persist trace failed")
+	}
+
+	// Persist the Ask card so /api/cards/:id/thread (the CardFocus
+	// modal) can pin it for follow-up turns. Best-effort: a failure
+	// here doesn't fail the response — the card still reaches the UI
+	// over SSE + HTTP, only the chat affordance degrades.
+	if h.Cards != nil && err == nil {
+		if upErr := h.Cards.Upsert(c.Request().Context(), []store.Card{storeCard(card, runID, date)}); upErr != nil && h.Log != nil {
+			h.Log.WithError(upErr).WithField("card_id", card.ID).Warn("ask: persist card failed")
+		}
 	}
 
 	if h.EventLog != nil {
