@@ -278,6 +278,106 @@ func TestConverse_ResearchKindWithSources(t *testing.T) {
 	require.Len(t, sub.Sources, 2)
 }
 
+// Models occasionally emit research replies with empty source shells —
+// `{i: 0, t: ""}` rows that pass schema validation (minlen is stripped
+// for constrained-decoding compatibility, and required only checks
+// presence, not non-empty). The renderer faithfully painted those as
+// tiny "0" badges with no title text. postProcessSubCard now drops
+// them; if nothing of value remains the card downgrades to `answer`
+// so the UI never paints an empty "sources" subsection.
+func TestPostProcessSubCard_ResearchDropsEmptySources(t *testing.T) {
+	t.Run("all empty downgrades to answer", func(t *testing.T) {
+		s := &SubCard{
+			Kind:    "research",
+			Eyebrow: "research · 5 sources",
+			Title:   "A 45-day reprieve and the shadow of the Strait",
+			Body:    "The 45-day ceasefire extension...",
+			Sources: []ResearchSource{
+				{I: 0, T: ""},
+				{I: 0, T: ""},
+				{I: 0, T: "   "},
+			},
+		}
+		postProcessSubCard(s, nil)
+
+		require.Equal(t, "answer", s.Kind, "kind should downgrade when no valid sources remain")
+		require.Equal(t, "answer", s.Eyebrow)
+		require.Nil(t, s.Sources)
+	})
+
+	t.Run("partial empty keeps valid and rewrites count", func(t *testing.T) {
+		s := &SubCard{
+			Kind:    "research",
+			Eyebrow: "research · 5 sources",
+			Title:   "x",
+			Sources: []ResearchSource{
+				{I: 0, T: ""},
+				{I: 0, T: "Reuters · ceasefire"},
+				{I: 0, T: ""},
+				{I: 0, T: "AP · response", W: "2 hr ago"},
+			},
+		}
+		postProcessSubCard(s, nil)
+
+		require.Equal(t, "research", s.Kind)
+		require.Equal(t, "research · 2 sources", s.Eyebrow, "eyebrow count must match actual source list length")
+		require.Len(t, s.Sources, 2)
+		require.Equal(t, 1, s.Sources[0].I, "i must be 1-based by position")
+		require.Equal(t, "Reuters · ceasefire", s.Sources[0].T)
+		require.Equal(t, 2, s.Sources[1].I)
+		require.Equal(t, "AP · response", s.Sources[1].T)
+		require.Equal(t, "2 hr ago", s.Sources[1].W)
+	})
+
+	t.Run("single source uses singular", func(t *testing.T) {
+		s := &SubCard{
+			Kind:    "research",
+			Eyebrow: "research · 4 sources",
+			Title:   "x",
+			Sources: []ResearchSource{
+				{I: 0, T: ""},
+				{I: 0, T: "Bloomberg · Strait of Hormuz"},
+				{I: 0, T: ""},
+			},
+		}
+		postProcessSubCard(s, nil)
+
+		require.Equal(t, "research · 1 source", s.Eyebrow)
+		require.Len(t, s.Sources, 1)
+	})
+
+	t.Run("valid sources untouched but renumbered", func(t *testing.T) {
+		s := &SubCard{
+			Kind:    "research",
+			Eyebrow: "research · 2 sources",
+			Title:   "x",
+			Sources: []ResearchSource{
+				{I: 7, T: "Saru thread · Acuity"},
+				{I: 9, T: "Friday redline"},
+			},
+		}
+		postProcessSubCard(s, nil)
+
+		require.Equal(t, "research", s.Kind)
+		require.Equal(t, "research · 2 sources", s.Eyebrow)
+		require.Equal(t, 1, s.Sources[0].I)
+		require.Equal(t, 2, s.Sources[1].I)
+	})
+
+	t.Run("non-research kinds untouched", func(t *testing.T) {
+		s := &SubCard{
+			Kind:    "answer",
+			Eyebrow: "answer",
+			Title:   "x",
+			Sources: []ResearchSource{{I: 0, T: ""}},
+		}
+		postProcessSubCard(s, nil)
+
+		require.Equal(t, "answer", s.Kind)
+		require.Len(t, s.Sources, 1, "sanitiser only runs for research kind")
+	})
+}
+
 func TestConverse_PriorTurnsRenderInPrompt(t *testing.T) {
 	// Capture the request body so we can assert that prior-turn
 	// content actually surfaces in the rendered system prompt.

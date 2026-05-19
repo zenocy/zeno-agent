@@ -672,22 +672,28 @@ function SubResearchBlock({
   body: string;
   sources?: SubCardData["sources"];
 }) {
+  // Defense against models that pass schema validation but emit empty
+  // shells like `{i: 0, t: ""}` — rendering those produced tiny pill
+  // badges with no title text. Backend cleanup in postProcessSubCard
+  // catches this too; the filter here is belt-and-braces so a backend
+  // regression never paints a broken card.
+  const validSources = (sources ?? []).filter((s) => s.t && s.t.trim() !== "");
   return (
     <div>
       <p className="text-[14px] leading-[1.6] text-ink m-0 mb-3.5">{body}</p>
-      {sources && sources.length > 0 && (
+      {validSources.length > 0 && (
         <div>
           <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-ink-4 mb-2">
             sources
           </div>
           <ol className="m-0 p-0 list-none flex flex-col gap-1.5">
-            {sources.map((s) => (
+            {validSources.map((s, idx) => (
               <li
-                key={s.i}
+                key={idx}
                 className="text-[12.5px] text-ink-2 pl-[22px] relative"
               >
                 <span className="absolute left-0 top-[1px] h-4 w-4 rounded-full bg-bg-elev text-ink-3 font-mono text-[10px] grid place-items-center">
-                  {s.i}
+                  {s.i || idx + 1}
                 </span>
                 <b className="text-ink font-[500]">{s.t}</b>
                 {s.w && <span className="font-mono text-ink-4"> · {s.w}</span>}

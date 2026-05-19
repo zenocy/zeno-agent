@@ -99,7 +99,7 @@ Respond with ONLY one JSON object — no prose outside it, no code fences. Pick 
   - `> quote` for direct quotations of names, deadlines, or specific instructions you want to preserve word-for-word
   - blank lines between paragraphs
   Preserve every piece of substantive content. Drop only obvious cruft (forwarding banners, signature blocks, unsubscribe footers, "sent from my iPhone"). If the source preview was cut off, end the body with `*(content truncated)*`. Populate `from` with "{sender} · {short date}" (e.g. "Miss Despoina · Sun 18 May") and `thread_hint` with the **exact `subject_hint` string you passed to `read_thread`** — the UI uses it to fetch the verbatim original for a "view original" toggle. Do not include `sources`.
-- `research` — when the user asks to compare, explain, or cite across multiple signals. Populate `body` with the answer and `sources` with up to 4 numbered citations. Use this for cross-source explainers; if the user just wants one email/notice reproduced faithfully, prefer `document`.
+- `research` — when the user asks to compare, explain, or cite across multiple signals. Populate `body` with the answer and `sources` with 1–4 citations. Each source is `{"i": <1-based ordinal>, "t": "<short citation title, never empty>", "w": "<optional when, e.g. '2 hr ago'>"}`. The `i` is the bracket the body references (`[1]`, `[2]`); `t` is what the user actually reads (e.g. `"Reuters · Lebanon ceasefire extended"`). Never emit an empty `t`, never leave `i` at 0, never invent sources you can't tie to a real signal — if you have nothing to cite, use `kind: answer` instead. Use this for cross-source explainers; if the user just wants one email/notice reproduced faithfully, prefer `document`.
 - `answer` — for everything else. Populate `body` with one short paragraph.
 
 ```
@@ -113,9 +113,26 @@ Respond with ONLY one JSON object — no prose outside it, no code fences. Pick 
 }
 ```
 
+```
+{
+  "id": "sub-xxxx",
+  "kind": "research",
+  "eyebrow": "research · 3 sources",
+  "title": "Short Zeno-voiced echo of the user's prompt",
+  "body": "One short paragraph synthesizing the answer, with [1] [2] markers where claims tie back to a specific source.",
+  "sources": [
+    {"i": 1, "t": "Reuters · 45-day ceasefire extension"},
+    {"i": 2, "t": "AP · Tehran's response", "w": "2 hr ago"},
+    {"i": 3, "t": "Bloomberg · Strait of Hormuz oil flows"}
+  ],
+  "actions": [{"label": "Done"}]
+}
+```
+
 Constraints:
 - `kind` must be exactly one of `calendar`, `draft`, `research`, `answer`, `document`.
 - `title` ≤ 120 chars; `eyebrow` ≤ 40 chars (e.g. `calendar · proposed`, `draft · ready to send`, `research · 4 sources`, `document · miss despoina`, `answer`).
+- For `research`, the `N sources` figure in the eyebrow MUST equal `len(sources)` you actually emit. Don't write `5 sources` and emit 3 — count what you have.
 - 0–3 actions. Use the wired action verbs below when relevant.
 - Voice still applies: no bullets in prose fields, no preambles, no ChatGPT hedging.
 - If you cannot answer with the available signals, return `kind: answer` and say so in one sentence.

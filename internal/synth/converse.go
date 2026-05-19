@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -362,6 +363,50 @@ func postProcessSubCard(s *SubCard, wired map[string]struct{}) {
 			}
 		}
 		s.Actions = kept
+	}
+	if s.Kind == "research" {
+		sanitiseResearchSources(s)
+	}
+}
+
+// sourceCountRE matches the "N sources" (or "N source") fragment in a
+// research eyebrow so we can rewrite the count to match the actual
+// emitted source list. The model frequently parrots the example label
+// without counting what it actually produced.
+var sourceCountRE = regexp.MustCompile(`\b\d+\s+sources?\b`)
+
+// sanitiseResearchSources drops sources the model emitted as empty
+// shells (`{i: 0, t: ""}` etc.), renumbers `i` 1-based by position so
+// citations point somewhere stable, and reconciles the eyebrow's
+// `N sources` count with the actual list length. If nothing of value
+// survives, the card is downgraded to `kind: answer` so the UI never
+// renders an empty "sources" subsection.
+func sanitiseResearchSources(s *SubCard) {
+	kept := s.Sources[:0]
+	for _, src := range s.Sources {
+		if strings.TrimSpace(src.T) == "" {
+			continue
+		}
+		kept = append(kept, src)
+	}
+	for i := range kept {
+		kept[i].I = i + 1
+	}
+	s.Sources = kept
+
+	if len(s.Sources) == 0 {
+		s.Sources = nil
+		s.Kind = "answer"
+		s.Eyebrow = "answer"
+		return
+	}
+
+	count := fmt.Sprintf("%d sources", len(s.Sources))
+	if len(s.Sources) == 1 {
+		count = "1 source"
+	}
+	if sourceCountRE.MatchString(s.Eyebrow) {
+		s.Eyebrow = sourceCountRE.ReplaceAllString(s.Eyebrow, count)
 	}
 }
 
