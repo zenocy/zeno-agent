@@ -30,26 +30,13 @@ import (
 //     its FunctionCall by Name (positionally when names collide), so the
 //     loop passes Message.Name through to FunctionResponse.Name; we also
 //     forward ToolCallID into FunctionResponse.ID as a secondary signal.
-func convertMessages(in []llm.Message) (system *genai.Content, contents []*genai.Content, warnings []string) {
+func convertMessages(in []llm.Message) (system *genai.Content, contents []*genai.Content) {
 	contents = make([]*genai.Content, 0, len(in))
 
 	sysParts := []*genai.Part{}
 	sawNonSystem := false
 
-	// The duplicate-tool-name warning is only meaningful for the most
-	// recent assistant turn — older turns get replayed on every
-	// iteration of the surrounding tool loop, so emitting the warning
-	// for them produces one WARNING line per iteration for the same
-	// historical event. Compute the last assistant index once and gate
-	// the warning emit below on it.
-	lastAsstIdx := -1
-	for i, m := range in {
-		if m.Role == "assistant" {
-			lastAsstIdx = i
-		}
-	}
-
-	for i, m := range in {
+	for _, m := range in {
 		switch m.Role {
 		case "system":
 			if !sawNonSystem {
@@ -87,13 +74,6 @@ func convertMessages(in []llm.Message) (system *genai.Content, contents []*genai
 			if m.Content != "" {
 				parts = append(parts, genai.NewPartFromText(m.Content))
 			}
-			// Track tool-call names per turn to detect ambiguous
-			// correlation (multiple unresolved calls with the same name
-			// in one assistant turn — Gemini matches FunctionResponse by
-			// Name, not ID, so this is potentially lossy). Only emit
-			// the warning for the most recent assistant turn — older
-			// turns have already been surfaced on prior iterations.
-			seenNames := map[string]int{}
 			for _, tc := range m.ToolCalls {
 				args := tc.Arguments
 				if args == nil {
@@ -112,15 +92,6 @@ func convertMessages(in []llm.Message) (system *genai.Content, contents []*genai
 					},
 					ThoughtSignature: tc.ProviderState,
 				})
-				seenNames[tc.Name]++
-			}
-			if i == lastAsstIdx {
-				for name, n := range seenNames {
-					if n > 1 {
-						warnings = append(warnings,
-							fmt.Sprintf("multiple tool calls with name %q in one assistant turn; Gemini correlates by name+position", name))
-					}
-				}
 			}
 			if len(parts) == 0 {
 				continue
@@ -164,7 +135,7 @@ func convertMessages(in []llm.Message) (system *genai.Content, contents []*genai
 	if len(sysParts) > 0 {
 		system = &genai.Content{Parts: sysParts}
 	}
-	return system, contents, warnings
+	return system, contents
 }
 
 // toolNameFromID is a best-effort fallback used only when a tool result

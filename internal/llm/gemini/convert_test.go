@@ -14,7 +14,7 @@ func TestConvertMessages_SystemInstructionRouting(t *testing.T) {
 		{Role: "system", Content: "you are a helpful assistant"},
 		{Role: "user", Content: "hi"},
 	}
-	sys, contents, _ := convertMessages(msgs)
+	sys, contents := convertMessages(msgs)
 	require.NotNil(t, sys, "first system message must become systemInstruction")
 	require.Len(t, sys.Parts, 1)
 	require.Equal(t, "you are a helpful assistant", sys.Parts[0].Text)
@@ -33,7 +33,7 @@ func TestConvertMessages_MidConversationSystemBecomesUser(t *testing.T) {
 		{Role: "assistant", Content: "ok"},
 		{Role: "system", Content: "Iteration cap reached"},
 	}
-	sys, contents, _ := convertMessages(msgs)
+	sys, contents := convertMessages(msgs)
 	require.NotNil(t, sys, "first system instruction preserved")
 	require.Len(t, contents, 3)
 	require.Equal(t, string(genai.RoleUser), contents[2].Role,
@@ -49,7 +49,7 @@ func TestConvertMessages_MultiSegmentSystemConcatenated(t *testing.T) {
 		{Role: "system", Content: "voice register"},
 		{Role: "user", Content: "ok"},
 	}
-	sys, _, _ := convertMessages(msgs)
+	sys, _ := convertMessages(msgs)
 	require.NotNil(t, sys)
 	require.Len(t, sys.Parts, 2,
 		"every leading system message lands as its own systemInstruction part")
@@ -67,7 +67,7 @@ func TestConvertMessages_AssistantEmptyContentWithToolCalls(t *testing.T) {
 			{ID: "call_1", Name: "read_thread", Arguments: map[string]any{"id": "T1"}},
 		}},
 	}
-	_, contents, _ := convertMessages(msgs)
+	_, contents := convertMessages(msgs)
 	require.Len(t, contents, 2)
 	asst := contents[1]
 	require.Equal(t, string(genai.RoleModel), asst.Role)
@@ -77,47 +77,11 @@ func TestConvertMessages_AssistantEmptyContentWithToolCalls(t *testing.T) {
 	require.Equal(t, "read_thread", asst.Parts[0].FunctionCall.Name)
 }
 
-func TestConvertMessages_AmbiguousToolCallWarning(t *testing.T) {
-	// Two unresolved tool calls with the same name in one assistant
-	// turn — Gemini's FunctionResponse matches by name + positional
-	// order, so we warn the operator.
-	msgs := []llm.Message{
-		{Role: "assistant", ToolCalls: []llm.ToolCall{
-			{ID: "call_1", Name: "read_thread", Arguments: map[string]any{"id": "T1"}},
-			{ID: "call_2", Name: "read_thread", Arguments: map[string]any{"id": "T2"}},
-		}},
-	}
-	_, _, warnings := convertMessages(msgs)
-	require.NotEmpty(t, warnings)
-	require.Contains(t, warnings[0], "read_thread")
-}
-
-func TestConvertMessages_AmbiguousToolCallWarningOnlyForLatestTurn(t *testing.T) {
-	// Regression: the surrounding tool loop replays the full message
-	// history on every iteration. An ambiguous-name assistant turn
-	// must only warn once (when it's the most recent assistant turn) —
-	// not every iteration that re-sends it as history.
-	msgs := []llm.Message{
-		{Role: "assistant", ToolCalls: []llm.ToolCall{
-			{ID: "call_1", Name: "read_tasks", Arguments: map[string]any{"id": "T1"}},
-			{ID: "call_2", Name: "read_tasks", Arguments: map[string]any{"id": "T2"}},
-		}},
-		{Role: "tool", ToolCallID: "call_1", Name: "read_tasks", Content: "body 1"},
-		{Role: "tool", ToolCallID: "call_2", Name: "read_tasks", Content: "body 2"},
-		{Role: "assistant", ToolCalls: []llm.ToolCall{
-			{ID: "call_3", Name: "read_thread", Arguments: map[string]any{"id": "X"}},
-		}},
-	}
-	_, _, warnings := convertMessages(msgs)
-	require.Empty(t, warnings,
-		"older ambiguous turns must not re-warn once a newer assistant turn supersedes them")
-}
-
 func TestConvertMessages_ToolResultBecomesUserFunctionResponse(t *testing.T) {
 	msgs := []llm.Message{
 		{Role: "tool", ToolCallID: "call_read_thread_1", Name: "read_thread", Content: "thread body"},
 	}
-	_, contents, _ := convertMessages(msgs)
+	_, contents := convertMessages(msgs)
 	require.Len(t, contents, 1)
 	require.Equal(t, string(genai.RoleUser), contents[0].Role)
 	fr := contents[0].Parts[0].FunctionResponse
@@ -144,7 +108,7 @@ func TestConvertMessages_ToolResultRoundTripsSameNameCorrelation(t *testing.T) {
 		{Role: "tool", ToolCallID: "call_read_thread_0", Name: "read_thread", Content: "body 1"},
 		{Role: "tool", ToolCallID: "call_read_thread_1", Name: "read_thread", Content: "body 2"},
 	}
-	_, contents, _ := convertMessages(msgs)
+	_, contents := convertMessages(msgs)
 	require.Len(t, contents, 3)
 
 	asstParts := contents[0].Parts
@@ -164,7 +128,7 @@ func TestConvertMessages_ToolResultFallsBackWhenNameMissing(t *testing.T) {
 	msgs := []llm.Message{
 		{Role: "tool", ToolCallID: "call_legacy_id", Content: "result"},
 	}
-	_, contents, _ := convertMessages(msgs)
+	_, contents := convertMessages(msgs)
 	require.Len(t, contents, 1)
 	fr := contents[0].Parts[0].FunctionResponse
 	require.NotNil(t, fr)
@@ -245,7 +209,7 @@ func TestThoughtSignatureRoundTrip(t *testing.T) {
 	msgs := []llm.Message{
 		{Role: "assistant", ToolCalls: out.ToolCalls},
 	}
-	_, contents, _ := convertMessages(msgs)
+	_, contents := convertMessages(msgs)
 	require.Len(t, contents, 1)
 	require.Len(t, contents[0].Parts, 1)
 	require.Equal(t, sig, contents[0].Parts[0].ThoughtSignature,

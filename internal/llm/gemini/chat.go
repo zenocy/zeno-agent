@@ -29,12 +29,7 @@ func (c *Client) ChatCompletion(
 	}
 	params := llm.ApplyChatOptions(opts)
 
-	system, contents, warnings := convertMessages(messages)
-	for _, w := range warnings {
-		if c.trafficLogger != nil {
-			c.trafficLogger.Warn("gemini: " + w)
-		}
-	}
+	system, contents := convertMessages(messages)
 
 	cfg := &genai.GenerateContentConfig{
 		SystemInstruction: system,
