@@ -304,3 +304,64 @@ func TestAsk_OmitsBody_WhatsAppSurface(t *testing.T) {
 	require.Empty(t, card.Body, "WhatsApp surface must leave body empty — only the in-app surface populates it")
 	require.NotEmpty(t, card.Speech, "WhatsApp surface must still populate speech for verbatim send")
 }
+
+// TestAsk_PopulatesSources pins source-citation surfacing: when the
+// model emits a `sources` array (because it called search_web /
+// read_url), Ask must surface the list on the returned Card so the
+// UI can render clickable links below the body.
+func TestAsk_PopulatesSources(t *testing.T) {
+	sources := []Source{
+		{T: "Reuters: Trump delays Iran strike", U: "https://www.reuters.com/world/middle-east/iran-pause-2026"},
+		{T: "Bloomberg: Gulf pressure", U: "https://www.bloomberg.com/news/iran-gulf-allies"},
+	}
+	cardJSON, err := json.Marshal(Card{
+		ID:       "generated-iran-src",
+		Date:     "2026-05-06",
+		Source:   "ask",
+		SrcLabel: "Generated",
+		Rel:      "med",
+		Title:    "A fragile pause in the Iran conflict",
+		Sub:      "Vance keeps military action locked and loaded if talks stall.",
+		Body:     "First paragraph.\n\nSecond paragraph.",
+		Sources:  sources,
+		Meta:     []string{},
+		Actions:  []Action{{Label: "Dismiss"}},
+	})
+	require.NoError(t, err)
+
+	srv := stubLLMServer(t, string(cardJSON))
+	defer srv.Close()
+
+	dbPath := t.TempDir() + "/zeno.db"
+	_, lstore, err := zlog.Open(dbPath)
+	require.NoError(t, err)
+
+	prompts, err := LoadPrompts("")
+	require.NoError(t, err)
+
+	logger := logrus.New()
+	logger.Out = io.Discard
+
+	llmClient := llm.NewClient(llm.ClientConfig{
+		Endpoint: srv.URL,
+		Model:    "test",
+		Timeout:  10 * time.Second,
+	})
+
+	deps := ReactiveDeps{
+		LLM:      llmClient,
+		Reader:   lstore,
+		ProjCfg:  projection.Config{TZ: time.UTC},
+		Prompts:  prompts,
+		Date:     "2026-05-06",
+		Now:      time.Now(),
+		Deadline: 5 * time.Second,
+		Logger:   logger.WithField("c", "reactive-test"),
+	}
+
+	card, _, _, err := Ask(context.Background(), deps, "what's the latest in the war of iran?")
+	require.NoError(t, err)
+	require.Len(t, card.Sources, 2, "Ask must surface the model's sources list verbatim")
+	require.Equal(t, "Reuters: Trump delays Iran strike", card.Sources[0].T)
+	require.Equal(t, "https://www.reuters.com/world/middle-east/iran-pause-2026", card.Sources[0].U)
+}

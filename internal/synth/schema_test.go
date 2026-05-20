@@ -294,6 +294,75 @@ func TestCardSchema_BodyOptional(t *testing.T) {
 	require.Error(t, ValidateJSON(CardSchema(), []byte(badType)))
 }
 
+// TestCardSchema_SourcesOptional verifies the reactive Ask sources
+// field is schema-optional: cards without it validate (no web tools
+// used), cards with a list of {t, u} entries validate (model cited
+// web evidence), and an empty title fails the minimum (sources need
+// at least a title to render).
+func TestCardSchema_SourcesOptional(t *testing.T) {
+	// Sources absent — most cards. Must validate.
+	absent := `{
+	  "id": "ask-no-web",
+	  "date": "2026-04-25",
+	  "src": "ask",
+	  "src_label": "Generated",
+	  "rel": "med",
+	  "title": "Title here",
+	  "sub": "Sub long enough to clear the floor.",
+	  "meta": [],
+	  "actions": [{"label":"Dismiss"}]
+	}`
+	require.NoError(t, ValidateJSON(CardSchema(), []byte(absent)))
+
+	// Sources populated — model cited web evidence.
+	populated := `{
+	  "id": "ask-iran",
+	  "date": "2026-04-25",
+	  "src": "ask",
+	  "src_label": "Generated",
+	  "rel": "med",
+	  "title": "A fragile pause in the Iran conflict",
+	  "sub": "Vance keeps military action locked and loaded if talks stall.",
+	  "sources": [
+	    {"t": "Reuters: Trump delays strike", "u": "https://www.reuters.com/world/middle-east/iran-pause-2026"},
+	    {"t": "Bloomberg: Gulf pressure", "u": "https://www.bloomberg.com/news/iran-gulf-allies"}
+	  ],
+	  "meta": [],
+	  "actions": [{"label":"Dismiss"}]
+	}`
+	require.NoError(t, ValidateJSON(CardSchema(), []byte(populated)))
+
+	// Source missing required title — fails.
+	missingT := `{
+	  "id": "ask-bad",
+	  "date": "2026-04-25",
+	  "src": "ask",
+	  "src_label": "Generated",
+	  "rel": "med",
+	  "title": "Title here",
+	  "sub": "Sub long enough to clear the floor.",
+	  "sources": [{"u": "https://example.com"}],
+	  "meta": [],
+	  "actions": [{"label":"Dismiss"}]
+	}`
+	require.Error(t, ValidateJSON(CardSchema(), []byte(missingT)))
+
+	// Source missing required URL — fails.
+	missingU := `{
+	  "id": "ask-bad",
+	  "date": "2026-04-25",
+	  "src": "ask",
+	  "src_label": "Generated",
+	  "rel": "med",
+	  "title": "Title here",
+	  "sub": "Sub long enough to clear the floor.",
+	  "sources": [{"t": "Title only"}],
+	  "meta": [],
+	  "actions": [{"label":"Dismiss"}]
+	}`
+	require.Error(t, ValidateJSON(CardSchema(), []byte(missingU)))
+}
+
 // TestCardSchemaMap_BodyHasNoLengthConstraints verifies the LLM-facing
 // schema lists `body` as an unconstrained optional string so Gemini's
 // decoder doesn't refuse longer elaborations. The strict validator

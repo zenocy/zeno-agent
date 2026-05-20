@@ -86,6 +86,11 @@ export interface ActionResult {
 // compatibility (the server is the source of truth for new origins).
 export type CardOrigin = "" | "morning" | "inject" | "ask";
 
+export interface CardSource {
+  t: string;
+  u: string;
+}
+
 export interface Card {
   id: string;
   date: string;
@@ -100,6 +105,10 @@ export interface Card {
   // morning cards and WhatsApp-origin cards. Paragraphs are separated
   // by blank lines (`\n\n`).
   body?: string;
+  // Web citations the model used when answering. Populated only when
+  // `search_web` or `read_url` was called this turn. Rendered as
+  // clickable links below the body in CardFocus.
+  sources?: CardSource[];
   meta: string[];
   actions: CardAction[];
   expand?: Record<string, string>;

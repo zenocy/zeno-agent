@@ -63,6 +63,12 @@ type Card struct {
 	// cards and on morning cards. AutoMigrate adds the column on next
 	// boot; existing rows back-fill with the default empty string.
 	Body string `gorm:"type:text;default:''" json:"body,omitempty"`
+
+	// Sources is the JSON-marshaled list of web citations the model
+	// emitted when answering. Shape matches synth.Source ({t, u}).
+	// Null on cards that didn't use the web tools; the cardDTO
+	// unmarshal handles both null and empty array.
+	Sources datatypes.JSON `gorm:"type:text" json:"sources,omitempty"`
 }
 
 // CardRepo persists and reads Card rows. The Table field controls which

@@ -320,6 +320,10 @@ func storeCard(c synth.Card, runID, date string) store.Card {
 	if len(c.Expand) > 0 {
 		expandJSON, _ = json.Marshal(c.Expand)
 	}
+	var sourcesJSON datatypes.JSON
+	if len(c.Sources) > 0 {
+		sourcesJSON, _ = json.Marshal(c.Sources)
+	}
 	return store.Card{
 		ID:       c.ID,
 		Date:     date,
@@ -334,6 +338,7 @@ func storeCard(c synth.Card, runID, date string) store.Card {
 		Meta:     datatypes.JSON(metaJSON),
 		Actions:  datatypes.JSON(actionsJSON),
 		Expand:   expandJSON,
+		Sources:  sourcesJSON,
 		TraceID:  runID,
 	}
 }

@@ -218,17 +218,6 @@ export function Card({ card, onOpen }: Props) {
             </p>
           )}
 
-          {/* Body — multi-paragraph elaboration on in-app ask cards. */}
-          {card.body && (
-            <div className="mt-3 text-[14px] text-ink-3 leading-[1.6] max-w-prose space-y-3">
-              {card.body.split(/\n{2,}/).map((para, i) => (
-                <p key={i}>
-                  {renderMarkdown(para, { emClassName: "not-italic font-[600] text-ink-2" })}
-                </p>
-              ))}
-            </div>
-          )}
-
           {/* Meta row — pin + rel dot live here as quiet inline tokens.
               srcLabel leads (matches design) followed by any extra meta
               entries the synth produced. */}

@@ -388,6 +388,61 @@ func TestAskHandler_PersistsBody(t *testing.T) {
 	require.Equal(t, body, got.Body, "persisted store.Card must carry the body so SSE re-broadcast + follow-ups stay consistent")
 }
 
+// TestAskHandler_PersistsSources pins the web-citation path through
+// the HTTP handler: when synth.Ask returns a Card with Sources, the
+// handler must surface them in the JSON response AND persist them
+// on the store.Card row so SSE re-broadcast and follow-up reads
+// keep the links intact.
+func TestAskHandler_PersistsSources(t *testing.T) {
+	db := openHandlerTestDB(t)
+	cards := &store.CardRepo{DB: db}
+	traces := &store.TraceRepo{DB: db}
+
+	stubCard := synth.Card{
+		ID: "iran-src-1", Date: "2026-04-25", Source: "ask",
+		SrcLabel: "Generated", Rel: "med",
+		Title: "A fragile pause in the Iran conflict",
+		Sub:   "Vance keeps military action locked and loaded if talks stall.",
+		Sources: []synth.Source{
+			{T: "Reuters: pause", U: "https://reuters.com/iran-pause"},
+			{T: "Bloomberg: gulf", U: "https://bloomberg.com/news/gulf"},
+		},
+		Meta: []string{}, Actions: []synth.Action{{Label: "Dismiss"}},
+	}
+
+	e := echo.New()
+	(&AskHandler{
+		AskFn: func(_ context.Context, _ string) (synth.Card, llm.Trace, []llm.MemoryCandidate, error) {
+			return stubCard, llm.Trace{Stopped: "ok"}, nil, nil
+		},
+		Cards:    cards,
+		Traces:   traces,
+		EventLog: logtest.NewMemReader(),
+		TZ:       func() *time.Location { return time.UTC },
+		Now:      func() time.Time { return time.Date(2026, 4, 25, 8, 0, 0, 0, time.UTC) },
+		Log:      quietHandlerEntry(),
+	}).Register(e)
+
+	rr := postAsk(e, "what's the latest in the war of iran?")
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	// HTTP response carries sources.
+	var resp askResponse
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	require.Len(t, resp.Card.Sources, 2)
+	require.Equal(t, "Reuters: pause", resp.Card.Sources[0].T)
+	require.Equal(t, "https://reuters.com/iran-pause", resp.Card.Sources[0].U)
+
+	// Persisted row carries sources — round-trips through the JSON column.
+	got, err := cards.GetByID(context.Background(), "iran-src-1")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.JSONEq(t,
+		`[{"t":"Reuters: pause","u":"https://reuters.com/iran-pause"},{"t":"Bloomberg: gulf","u":"https://bloomberg.com/news/gulf"}]`,
+		string(got.Sources),
+	)
+}
+
 // TestAskHandler_PersistFailureDoesNotFailResponse covers the best-effort
 // contract: a CardRepo persist error is logged but the HTTP response still
 // succeeds — the card already streamed to the UI over SSE + HTTP, and the

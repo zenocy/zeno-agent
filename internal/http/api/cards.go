@@ -46,6 +46,7 @@ type cardDTO struct {
 	Meta     []string          `json:"meta"`
 	Actions  []cardActionDTO   `json:"actions"`
 	Expand   map[string]string `json:"expand,omitempty"`
+	Sources  []cardSourceDTO   `json:"sources,omitempty"`
 	TraceID  string            `json:"trace_id,omitempty"`
 	Pinned   bool              `json:"pinned,omitempty"` // V2.8.1
 }
@@ -55,6 +56,11 @@ type cardActionDTO struct {
 	Primary bool           `json:"primary,omitempty"`
 	Intent  string         `json:"intent,omitempty"`
 	Target  map[string]any `json:"target,omitempty"`
+}
+
+type cardSourceDTO struct {
+	T string `json:"t"`
+	U string `json:"u"`
 }
 
 type cardsListResponse struct {
@@ -183,6 +189,9 @@ func toCardDTO(r store.Card) cardDTO {
 	}
 	if len(r.Expand) > 0 {
 		_ = json.Unmarshal(r.Expand, &d.Expand)
+	}
+	if len(r.Sources) > 0 {
+		_ = json.Unmarshal(r.Sources, &d.Sources)
 	}
 	return d
 }

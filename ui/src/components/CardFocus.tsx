@@ -172,6 +172,39 @@ export function CardFocus({ card, onClose }: Props) {
                     })}
                   </p>
                 )}
+                {card.body && (
+                  <div className="mt-4 text-[14px] leading-[1.65] text-ink-2 space-y-3 max-w-prose">
+                    {card.body.split(/\n{2,}/).map((para, i) => (
+                      <p key={i} className="m-0">
+                        {renderMarkdown(para, {
+                          emClassName: "not-italic font-[600] text-ink",
+                        })}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {card.sources && card.sources.length > 0 && (
+                  <div className="mt-5 pt-4 border-t border-line">
+                    <h6 className="font-mono text-[10.5px] uppercase tracking-[.08em] text-ink-4 mb-2">
+                      Sources
+                    </h6>
+                    <ul className="space-y-1.5 m-0 p-0 list-none">
+                      {card.sources.map((s, i) => (
+                        <li key={i} className="text-[13px] leading-[1.45]">
+                          <a
+                            href={s.u}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="text-accent hover:underline break-words"
+                            title={s.u}
+                          >
+                            {s.t || s.u}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </>
             )}
           </div>

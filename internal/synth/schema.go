@@ -87,6 +87,23 @@ type Card struct {
 	// zen constraint — soft length lives in the prompt; the schema
 	// accepts any string so historical fixtures keep validating.
 	Body string `json:"body,omitempty"`
+
+	// Sources are the web citations the model used when answering the
+	// query. Populated by the reactive Ask flow when search_web or
+	// read_url was called this turn; empty on morning cards and on ask
+	// cards that didn't touch the web. Trust-but-verify is left to a
+	// future URL-grounding pass — for now the model self-reports which
+	// URLs informed its answer.
+	Sources []Source `json:"sources,omitempty"`
+}
+
+// Source is one web citation under an ask card. Title is the
+// article/page title (short, capped). URL is the canonical link the
+// UI renders as a clickable anchor. Kept distinct from ResearchSource
+// (used by SubCard) because that type intentionally omits the URL.
+type Source struct {
+	T string `json:"t" zen:"required,maxlen=200"`
+	U string `json:"u" zen:"required,maxlen=600"`
 }
 
 // CardSet is the LLM's required output shape for the cards loop.

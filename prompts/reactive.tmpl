@@ -104,6 +104,7 @@ Respond with ONLY this JSON — no prose outside it, no code fences:
   "title": "Short, sharp Zeno-voiced title",
   "sub": "One sentence (~400 characters or fewer) of literary prose that answers the question.",
   "body": "Optional. Multi-paragraph elaboration — populated only on the in-app text surface (see surface-specific rules below).",
+  "sources": [{"t": "Article or page title", "u": "https://canonical.url/to/page"}],
   "meta": [],
   "actions": [{"label": "Dismiss"}]
 }
@@ -116,6 +117,7 @@ Constraints:
 - Title and sub follow the voice rules above — no bullet lists, no ChatGPT hedging.
 - Aim for `title` ≤120 chars and `sub` ≤400 chars. These are budgets, not hard caps — but keep prose tight; cut secondary detail rather than spilling over.
 - If you cannot find relevant data with the tools, still produce a card; say so briefly in `sub`.
+- `sources`: populate ONLY when you called `search_web` or `read_url` and actually drew on the result. Each entry is `{"t": "article title", "u": "URL"}`. Cap at 5 entries. Use the canonical URL from the tool output verbatim — do not invent or paraphrase URLs. Omit the field entirely when no web tool was used.
 
 {{- if not .Conversation }}
 

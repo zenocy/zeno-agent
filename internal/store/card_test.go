@@ -264,6 +264,33 @@ func TestCardRepo_BodyColumn(t *testing.T) {
 	require.Equal(t, "", empty.Body, "zero-value Body must stay empty — no default-mangling")
 }
 
+// TestCardRepo_SourcesColumn round-trips the Sources JSON column.
+// Populated entries must survive a save+load; null Sources (the
+// common case for non-web ask cards and morning cards) must come
+// back as zero-length JSON without erroring.
+func TestCardRepo_SourcesColumn(t *testing.T) {
+	db := openTestDB(t)
+	repo := &CardRepo{DB: db}
+	ctx := context.Background()
+
+	sources := datatypes.JSON([]byte(`[{"t":"Reuters: pause","u":"https://reuters.com/iran"},{"t":"Bloomberg","u":"https://bloomberg.com/gulf"}]`))
+	now := time.Now()
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		{ID: "ask-with-sources", Date: "2026-04-25", Source: "ask", Rel: "med", Title: "with sources", Sub: "sub long enough", Sources: sources, Origin: "ask", CreatedAt: now},
+		{ID: "ask-no-sources", Date: "2026-04-25", Source: "ask", Rel: "med", Title: "no sources", Sub: "sub long enough", Origin: "ask", CreatedAt: now},
+	}))
+
+	got, err := repo.GetByID(ctx, "ask-with-sources")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.JSONEq(t, string(sources), string(got.Sources), "Sources JSON must round-trip byte-equivalently")
+
+	empty, err := repo.GetByID(ctx, "ask-no-sources")
+	require.NoError(t, err)
+	require.NotNil(t, empty)
+	require.Len(t, empty.Sources, 0, "missing Sources must come back as zero-length JSON, not error")
+}
+
 // V2.3.0 P3: morning + inject briefings must coexist for the same date
 // under the composite (date, kind) PK. ByDate returns morning by default;
 // ByDateKind reaches the inject row; ListByDate returns both.
