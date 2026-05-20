@@ -92,6 +92,27 @@ func TestConvertMessages_AmbiguousToolCallWarning(t *testing.T) {
 	require.Contains(t, warnings[0], "read_thread")
 }
 
+func TestConvertMessages_AmbiguousToolCallWarningOnlyForLatestTurn(t *testing.T) {
+	// Regression: the surrounding tool loop replays the full message
+	// history on every iteration. An ambiguous-name assistant turn
+	// must only warn once (when it's the most recent assistant turn) —
+	// not every iteration that re-sends it as history.
+	msgs := []llm.Message{
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call_1", Name: "read_tasks", Arguments: map[string]any{"id": "T1"}},
+			{ID: "call_2", Name: "read_tasks", Arguments: map[string]any{"id": "T2"}},
+		}},
+		{Role: "tool", ToolCallID: "call_1", Name: "read_tasks", Content: "body 1"},
+		{Role: "tool", ToolCallID: "call_2", Name: "read_tasks", Content: "body 2"},
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call_3", Name: "read_thread", Arguments: map[string]any{"id": "X"}},
+		}},
+	}
+	_, _, warnings := convertMessages(msgs)
+	require.Empty(t, warnings,
+		"older ambiguous turns must not re-warn once a newer assistant turn supersedes them")
+}
+
 func TestConvertMessages_ToolResultBecomesUserFunctionResponse(t *testing.T) {
 	msgs := []llm.Message{
 		{Role: "tool", ToolCallID: "call_read_thread_1", Name: "read_thread", Content: "thread body"},
