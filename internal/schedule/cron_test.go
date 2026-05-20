@@ -333,25 +333,24 @@ func TestScheduler_Recognition_FiresAfterMorningCron(t *testing.T) {
 // is the ground-truth integration point.
 func TestScheduler_ServiceTier_PropagatesToCtx(t *testing.T) {
 	var (
-		morningTier, recognitionTier, injectTier string
-		mu                                       sync.Mutex
+		morningProfile, recognitionProfile, injectProfile llm.CallProfile
+		mu                                                sync.Mutex
 	)
-	capture := func(into *string) func(ctx context.Context) error {
+	capture := func(into *llm.CallProfile) func(ctx context.Context) error {
 		return func(ctx context.Context) error {
 			mu.Lock()
-			*into = llm.ServiceTierFromContext(ctx)
+			*into = llm.CallProfileFromContext(ctx)
 			mu.Unlock()
 			return nil
 		}
 	}
 
-	s, err := New(config.ScheduleConfig{}, nil, capture(&morningTier), quietEntry())
+	s, err := New(config.ScheduleConfig{}, nil, capture(&morningProfile), quietEntry())
 	require.NoError(t, err)
-	s.WithServiceTier("flex").
-		WithRecognition(capture(&recognitionTier)).
+	s.WithRecognition(capture(&recognitionProfile)).
 		WithInject(func(ctx context.Context, _ any) error {
 			mu.Lock()
-			injectTier = llm.ServiceTierFromContext(ctx)
+			injectProfile = llm.CallProfileFromContext(ctx)
 			mu.Unlock()
 			return nil
 		})
@@ -362,9 +361,9 @@ func TestScheduler_ServiceTier_PropagatesToCtx(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	require.Equal(t, "flex", morningTier, "RunMorningNow must stamp the configured tier")
-	require.Equal(t, "flex", recognitionTier, "RunRecognitionNow must stamp the configured tier")
-	require.Equal(t, "flex", injectTier, "RunInjectNow must stamp the configured tier")
+	require.Equal(t, llm.CallProfileBackground, morningProfile, "RunMorningNow must stamp the background profile")
+	require.Equal(t, llm.CallProfileBackground, recognitionProfile, "RunRecognitionNow must stamp the background profile")
+	require.Equal(t, llm.CallProfileBackground, injectProfile, "RunInjectNow must stamp the background profile")
 }
 
 // TestScheduler_ServiceTier_PropagatesOnCronTick pins that the
@@ -375,13 +374,13 @@ func TestScheduler_ServiceTier_PropagatesToCtx(t *testing.T) {
 // covered with its own assertion below.
 func TestScheduler_ServiceTier_PropagatesOnCronTick(t *testing.T) {
 	var (
-		morningTier, recognitionTier string
-		mu                           sync.Mutex
-		morningSeen, recogSeen       = make(chan struct{}, 1), make(chan struct{}, 1)
+		morningProfile, recognitionProfile llm.CallProfile
+		mu                                 sync.Mutex
+		morningSeen, recogSeen             = make(chan struct{}, 1), make(chan struct{}, 1)
 	)
 	morningFn := func(ctx context.Context) error {
 		mu.Lock()
-		morningTier = llm.ServiceTierFromContext(ctx)
+		morningProfile = llm.CallProfileFromContext(ctx)
 		mu.Unlock()
 		select {
 		case morningSeen <- struct{}{}:
@@ -391,7 +390,7 @@ func TestScheduler_ServiceTier_PropagatesOnCronTick(t *testing.T) {
 	}
 	recogFn := func(ctx context.Context) error {
 		mu.Lock()
-		recognitionTier = llm.ServiceTierFromContext(ctx)
+		recognitionProfile = llm.CallProfileFromContext(ctx)
 		mu.Unlock()
 		select {
 		case recogSeen <- struct{}{}:
@@ -405,7 +404,7 @@ func TestScheduler_ServiceTier_PropagatesOnCronTick(t *testing.T) {
 	// non-manual tick handlers in one shot.
 	s, err := New(config.ScheduleConfig{MorningCron: "@every 1s"}, nil, morningFn, quietEntry())
 	require.NoError(t, err)
-	s.WithServiceTier("flex").WithRecognition(recogFn)
+	s.WithRecognition(recogFn)
 	s.Start()
 	defer s.Stop()
 
@@ -422,26 +421,10 @@ func TestScheduler_ServiceTier_PropagatesOnCronTick(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	require.Equal(t, "flex", morningTier,
-		"runMorningSynth (cron path) must stamp the configured tier")
-	require.Equal(t, "flex", recognitionTier,
-		"runRecognition (chained off cron) must stamp the configured tier")
-}
-
-// TestScheduler_ServiceTier_EmptyLeavesCtxUntouched pins the safe-rollout
-// promise: without WithServiceTier (or with empty tier), the scheduler
-// must not stash anything in ctx — the LLM call then omits the field
-// entirely and OpenRouter picks its upstream default.
-func TestScheduler_ServiceTier_EmptyLeavesCtxUntouched(t *testing.T) {
-	var got string
-	morningFn := func(ctx context.Context) error {
-		got = llm.ServiceTierFromContext(ctx)
-		return nil
-	}
-	s, err := New(config.ScheduleConfig{}, nil, morningFn, quietEntry())
-	require.NoError(t, err)
-	require.NoError(t, s.RunMorningNow(context.Background()))
-	require.Equal(t, "", got, "no WithServiceTier call → ctx must carry no tier")
+	require.Equal(t, llm.CallProfileBackground, morningProfile,
+		"runMorningSynth (cron path) must stamp the background profile")
+	require.Equal(t, llm.CallProfileBackground, recognitionProfile,
+		"runRecognition (chained off cron) must stamp the background profile")
 }
 
 // V2.5 post-launch: RunMorningNow (UI force-refresh) chains recognition

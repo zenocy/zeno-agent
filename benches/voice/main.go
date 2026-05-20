@@ -57,7 +57,7 @@ func main() {
 		label       = flag.String("label", "", "label for this run (defaults to model)")
 		report      = flag.String("report", "benches/REPORT.md", "path to append results to")
 		fixturePath = flag.String("fixture", "benches/fixtures/morning_projections.json", "projections fixture")
-		voicePath   = flag.String("voice", "prompts/_voice.md", "voice rules markdown")
+		voicePath   = flag.String("voice", "internal/synth/templates/_voice.md", "voice rules markdown")
 		timeout     = flag.Duration("timeout", 360*time.Second, "request timeout")
 	)
 	flag.Parse()

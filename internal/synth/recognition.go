@@ -134,7 +134,7 @@ type RecognizeOpts struct {
 // to the review surface; EventLog provides the audit trail for
 // post-hoc analysis.
 type RecognizeDeps struct {
-	LLM          *llm.Client
+	LLM          llm.Provider
 	Reader       log.Reader
 	Concerns     *store.ConcernRepo
 	Observations *store.ConcernObservationRepo

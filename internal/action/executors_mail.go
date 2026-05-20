@@ -27,7 +27,7 @@ type MailDeps struct {
 	SMTP    smtpsensor.Client // nil → SMTP disabled, sends degrade to drafts
 	SMTPCfg config.SMTPConfig
 	Reader  logp.Reader // for resolving the source mail.received event
-	LLM     *llm.Client
+	LLM     llm.Provider
 	Voice   string // typically PromptSet.VoiceShort, used by DraftReply
 	Logger  *logrus.Entry
 }

@@ -32,7 +32,7 @@ type RunResult struct {
 
 // RunOpts bundles the per-run dependencies the harness needs.
 type RunOpts struct {
-	LLM             *llm.Client
+	LLM             llm.Provider
 	Prompts         *synth.PromptSet
 	CardsTimeout    time.Duration // 0 → 30s
 	BriefingTimeout time.Duration // 0 → 45s

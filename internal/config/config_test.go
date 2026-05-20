@@ -115,6 +115,15 @@ func TestServiceTierValidation(t *testing.T) {
 			yaml:    "auth:\n  enabled: false\nllm:\n  service_tier_interactive: blazing\n",
 			wantErr: "service_tier_interactive",
 		},
+		{
+			name: "nested openai service_tier accepted",
+			yaml: "auth:\n  enabled: false\nllm:\n  openai:\n    service_tier_background: flex\n    service_tier_interactive: priority\n",
+		},
+		{
+			name:    "nested openai service_tier rejected",
+			yaml:    "auth:\n  enabled: false\nllm:\n  openai:\n    service_tier_background: turbo\n",
+			wantErr: "service_tier_background",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -130,6 +139,194 @@ func TestServiceTierValidation(t *testing.T) {
 			require.Contains(t, err.Error(), tc.wantErr)
 		})
 	}
+}
+
+func TestLLMProviderSelector(t *testing.T) {
+	cases := []struct {
+		name     string
+		yaml     string
+		wantErr  string
+		wantProv string
+	}{
+		{
+			name:     "default is openai",
+			yaml:     "auth:\n  enabled: false\n",
+			wantProv: "openai",
+		},
+		{
+			name:     "explicit openai",
+			yaml:     "auth:\n  enabled: false\nllm:\n  provider: openai\n",
+			wantProv: "openai",
+		},
+		{
+			name:     "gemini accepted",
+			yaml:     "auth:\n  enabled: false\nllm:\n  provider: gemini\n",
+			wantProv: "gemini",
+		},
+		{
+			name:    "unknown provider rejected",
+			yaml:    "auth:\n  enabled: false\nllm:\n  provider: claude\n",
+			wantErr: "llm.provider",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "config.yaml")
+			require.NoError(t, os.WriteFile(path, []byte("server:\n  port: 7777\n"+tc.yaml), 0o600))
+			cfg, err := Load(path)
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.wantProv, cfg.LLM.Provider)
+		})
+	}
+}
+
+func TestLLMConfigNormalize_FlatBackCompat(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// Pre-multi-provider YAML: flat fields at top level, no openai block.
+	yaml := "server:\n  port: 7777\nauth:\n  enabled: false\nllm:\n" +
+		"  endpoint: http://localhost:1234/v1\n" +
+		"  api_key: SK_LOCAL\n" +
+		"  json_schema_mode: on\n" +
+		"  service_tier_background: flex\n" +
+		"  service_tier_interactive: priority\n"
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	cfg, err := Load(path)
+	require.NoError(t, err)
+	// Normalize should have folded the flat fields into OpenAI.
+	require.Equal(t, "openai", cfg.LLM.Provider)
+	require.Equal(t, "http://localhost:1234/v1", cfg.LLM.OpenAI.Endpoint)
+	require.Equal(t, "SK_LOCAL", cfg.LLM.OpenAI.APIKey)
+	require.Equal(t, "on", cfg.LLM.OpenAI.JSONSchemaMode)
+	require.Equal(t, "flex", cfg.LLM.OpenAI.ServiceTierBackground)
+	require.Equal(t, "priority", cfg.LLM.OpenAI.ServiceTierInteractive)
+}
+
+func TestLLMConfigNormalize_NestedTakesPrecedence(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// Both flat and nested set — nested wins because it was set explicitly.
+	yaml := "server:\n  port: 7777\nauth:\n  enabled: false\nllm:\n" +
+		"  endpoint: http://OLD/v1\n" +
+		"  openai:\n" +
+		"    endpoint: http://NEW/v1\n" +
+		"    api_key: NEW_KEY\n"
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	cfg, err := Load(path)
+	require.NoError(t, err)
+	require.Equal(t, "http://NEW/v1", cfg.LLM.OpenAI.Endpoint)
+	require.Equal(t, "NEW_KEY", cfg.LLM.OpenAI.APIKey)
+}
+
+func TestLLMThinkingLevelValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "empty accepted",
+			yaml: "auth:\n  enabled: false\nllm:\n  provider: gemini\n",
+		},
+		{
+			name: "all four levels accepted",
+			yaml: "auth:\n  enabled: false\nllm:\n  provider: gemini\n  gemini:\n    thinking_level_background: high\n    thinking_level_interactive: minimal\n",
+		},
+		{
+			name:    "typo rejected",
+			yaml:    "auth:\n  enabled: false\nllm:\n  provider: gemini\n  gemini:\n    thinking_level_background: deep\n",
+			wantErr: "thinking_level_background",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "config.yaml")
+			require.NoError(t, os.WriteFile(path, []byte("server:\n  port: 7777\n"+tc.yaml), 0o600))
+			_, err := Load(path)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
+func TestLLMGeminiServiceTierValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "empty accepted",
+			yaml: "auth:\n  enabled: false\nllm:\n  provider: gemini\n",
+		},
+		{
+			name: "all valid values accepted",
+			yaml: "auth:\n  enabled: false\nllm:\n  provider: gemini\n  gemini:\n    service_tier_background: flex\n    service_tier_interactive: priority\n",
+		},
+		{
+			name: "standard accepted",
+			yaml: "auth:\n  enabled: false\nllm:\n  provider: gemini\n  gemini:\n    service_tier_background: standard\n",
+		},
+		{
+			name:    "openrouter-only 'default' rejected",
+			yaml:    "auth:\n  enabled: false\nllm:\n  provider: gemini\n  gemini:\n    service_tier_background: default\n",
+			wantErr: "service_tier_background",
+		},
+		{
+			name:    "typo rejected",
+			yaml:    "auth:\n  enabled: false\nllm:\n  provider: gemini\n  gemini:\n    service_tier_interactive: turbo\n",
+			wantErr: "service_tier_interactive",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "config.yaml")
+			require.NoError(t, os.WriteFile(path, []byte("server:\n  port: 7777\n"+tc.yaml), 0o600))
+			_, err := Load(path)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
+func TestLLMGeminiModelField(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	yaml := "server:\n  port: 7777\nauth:\n  enabled: false\nllm:\n  provider: gemini\n  model: gemma3:4b\n  gemini:\n    model: gemini-3.5-flash\n"
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	cfg, err := Load(path)
+	require.NoError(t, err)
+	require.Equal(t, "gemini-3.5-flash", cfg.LLM.Gemini.Model,
+		"gemini sub-block carries its own model name independent of llm.model")
+	require.Equal(t, "gemma3:4b", cfg.LLM.Model,
+		"common llm.model unchanged when gemini.model is set")
+}
+
+func TestLLMConfigNormalize_GeminiAPIKeyFromEnv(t *testing.T) {
+	t.Setenv("GEMINI_API_KEY", "env-sourced-key")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	yaml := "server:\n  port: 7777\nauth:\n  enabled: false\nllm:\n  provider: gemini\n"
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	cfg, err := Load(path)
+	require.NoError(t, err)
+	require.Equal(t, "env-sourced-key", cfg.LLM.Gemini.APIKey)
 }
 
 func TestMetricsDefaults(t *testing.T) {

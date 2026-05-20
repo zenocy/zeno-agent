@@ -1,4 +1,4 @@
-.PHONY: dev test lint ship ship-strict eval eval-baseline eval-compare eval-state help sync-prompts verify-no-pm-language
+.PHONY: dev test lint ship ship-strict eval eval-baseline eval-compare eval-state eval-gemini help verify-no-pm-language
 
 VERSION    ?= dev
 GATE_MODEL ?= gemma3:4b
@@ -78,14 +78,14 @@ ship: lint test
 # milestone, deliverable, assignee, in progress, on hold, action item.
 # Lines tagged with `allow-pm-language` are exempt — use sparingly for
 # comments that *define* the ban itself.
-verify-no-pm-language: sync-prompts
+verify-no-pm-language:
 	@echo "==> verify-no-pm-language: scanning for banned PM tokens"
 	@hits=$$(grep -rEHIin \
 	  --include='*.go' --include='*.ts' --include='*.tsx' --include='*.tmpl' \
 	  --exclude='*_test.go' --exclude='*.test.ts' --exclude='*.test.tsx' \
 	  --exclude-dir='__tests__' --exclude-dir='node_modules' --exclude-dir='corpus' \
 	  '\bproject\b|\bkanban\b|\bmilestone\b|\bdeliverable\b|\bassignee\b|in progress|on hold|action item' \
-	  internal prompts ui/src \
+	  internal ui/src \
 	  | grep -v 'allow-pm-language' || true); \
 	if [ -n "$$hits" ]; then \
 	  echo ""; echo "$$hits"; echo ""; \
@@ -108,19 +108,6 @@ ship-strict: ship verify-no-pm-language
 	@echo ""
 	@echo "==> all gates exited 0; gate 1 (voice) still needs a human read of benches/REPORT.md."
 
-# Sync prompts/ → internal/synth/templates/ so go:embed picks up edits.
-# The eval and the binary both load from the embedded copy; rounds 1–5 of
-# the prompt-iteration work were silently bypassed because edits to
-# prompts/ never reached the embedded path. Treat prompts/ as the source
-# of truth and re-sync before any build that loads prompts.
-sync-prompts:
-	@cp -f prompts/_voice.md            internal/synth/templates/_voice.md
-	@cp -f prompts/_voice_short.md      internal/synth/templates/_voice_short.md
-	@cp -f prompts/briefing.tmpl        internal/synth/templates/briefing.tmpl
-	@cp -f prompts/cards_system.tmpl    internal/synth/templates/cards_system.tmpl
-	@cp -f prompts/reactive.tmpl        internal/synth/templates/reactive.tmpl
-	@echo "==> prompts/ → internal/synth/templates/ synced"
-
 # V2.1 evals harness. Runs every *.json fixture in EVAL_FIXTURES against the
 # LLM endpoint defined in EVAL_CONFIG (default: config.yaml), scores each,
 # and writes an HTML report.
@@ -141,7 +128,7 @@ EVAL_FLAGS = -config=$(EVAL_CONFIG) \
   $(if $(EVAL_MODEL),-model=$(EVAL_MODEL)) \
   $(if $(EVAL_JSON_SCHEMA_MODE),-json-schema-mode=$(EVAL_JSON_SCHEMA_MODE))
 
-eval: sync-prompts
+eval:
 	@echo "==> eval harness — config=$(EVAL_CONFIG)$(if $(EVAL_MODEL), model=$(EVAL_MODEL))$(if $(EVAL_ENDPOINT), endpoint=$(EVAL_ENDPOINT))$(if $(EVAL_JSON_SCHEMA_MODE), json_schema=$(EVAL_JSON_SCHEMA_MODE))"
 	go run ./eval/cmd/eval $(EVAL_FLAGS) -report=$(EVAL_REPORT)
 	@echo "==> report → $(EVAL_REPORT)"
@@ -164,7 +151,7 @@ eval-baseline:
 # V2.3.0 P5: scoped eval — five state fixtures only. Mirrors `eval` but
 # skips the reactive + memory-grounding fixtures so a state-aware voice
 # iteration cycle runs in a fraction of the time.
-eval-state: sync-prompts
+eval-state:
 	@echo "==> eval-state — state fixtures only (config=$(EVAL_CONFIG))"
 	go run ./eval/cmd/eval -config=$(EVAL_CONFIG) \
 	  -fixtures=$(EVAL_STATE_FIXTURES) \
@@ -173,6 +160,18 @@ eval-state: sync-prompts
 	  $(if $(EVAL_MODEL),-model=$(EVAL_MODEL)) \
 	  $(if $(EVAL_JSON_SCHEMA_MODE),-json-schema-mode=$(EVAL_JSON_SCHEMA_MODE))
 	@echo "==> state report → $(EVAL_REPORT_STATE)"
+
+# V2.x: run the eval harness against the native Gemini provider. Uses
+# eval/eval-config.gemini.yaml so a single command exercises Gemini
+# end-to-end with the same fixtures the OpenAI-side eval uses; useful
+# for catching regressions when the provider abstraction changes shape.
+# Requires GEMINI_API_KEY in env (or set llm.gemini.api_key in the YAML).
+eval-gemini:
+	@echo "==> eval-gemini — config=eval/eval-config.gemini.yaml"
+	go run ./eval/cmd/eval -config=eval/eval-config.gemini.yaml \
+	  -fixtures=$(EVAL_FIXTURES) \
+	  -report=eval-report-gemini.html
+	@echo "==> gemini eval report → eval-report-gemini.html"
 
 # Diff the current run against the committed golden corpus. Exits non-zero
 # on regression (any deterministic dimension drops by ≥1 point on ≥1 fixture,

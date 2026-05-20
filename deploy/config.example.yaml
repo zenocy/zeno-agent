@@ -44,8 +44,13 @@ db:
   path: ./data/zeno.db
 
 llm:
-  endpoint: http://host.docker.internal:11434/v1   # Ollama on the host
-  api_key: ""                                       # leave empty for local
+  # Backend selector. "openai" (default) routes through the OpenAI-
+  # compatible client — works with Ollama, LM Studio, vLLM, OpenRouter,
+  # any provider that exposes /v1/chat/completions. "gemini" routes
+  # through the native Google Gemini client (google.golang.org/genai)
+  # so calls can use Google Search grounding and thinking_level.
+  provider: openai
+
   model: gemma3:4b
   # Per-HTTP-call transport timeout. This is the http.Client.Timeout that
   # caps any single request to the LLM endpoint (including reading the
@@ -68,11 +73,6 @@ llm:
   retry_max_attempts: 3
   retry_initial_backoff_ms: 250
   retry_max_backoff_ms: 8000
-  # JSON-schema response_format support. Set to "on" to send the compiled
-  # schema along with each structured-output request (eliminates most repair-
-  # loop traffic by construction). "auto" probes the endpoint at startup;
-  # "off" (default in V2.1.0 pending Phase 0 probe) keeps json_object-only.
-  json_schema_mode: off
   # Completion-token budget applied to every structured-output call by
   # default (callers may override per-call via WithMaxTokens). Set generously
   # because Qwen3-family models in thinking mode emit 5–8K tokens of
@@ -86,21 +86,70 @@ llm:
   # briefing latency from ~2 min to ~30 s on local hardware. May regress
   # voice quality if the model relies on think-tokens for prose shape;
   # measure with `make eval` before flipping. Default false. Other surfaces
-  # (cards, reactive) keep think enabled regardless.
+  # (cards, reactive) keep think enabled regardless. Gemini ignores it.
   no_think: false
 
-  # OpenRouter service tiers (https://openrouter.ai/docs/guides/features/service-tiers).
-  # Adds a `service_tier` field on outbound chat completions so background
-  # work can run on the cheaper/slower "flex" backend while interactive
-  # paths stay on the default. Allowed values: "" (omit field; upstream
-  # picks), "default", "flex", "priority". Empty (default) preserves
-  # pre-V2.x behavior — no field is sent.
-  #
-  # Ignored when pointing at a non-OpenRouter endpoint (local Ollama / LM
-  # Studio ignore the field), though some providers may 400 on unknown
-  # fields — leave empty when running against a local server.
-  service_tier_background: ""    # set to "flex" on OpenRouter for cron + manual *Now triggers (morning synth, recognition, inject)
-  service_tier_interactive: ""   # set to "priority" if you want chat/Ask responses to skip the default queue
+  # OpenAI-compatible client knobs. Consulted when provider == "openai".
+  openai:
+    endpoint: http://host.docker.internal:11434/v1   # Ollama on the host
+    api_key: ""                                      # leave empty for local
+    # JSON-schema response_format support. Set to "on" to send the compiled
+    # schema along with each structured-output request (eliminates most
+    # repair-loop traffic by construction). "auto" probes the endpoint at
+    # startup; "off" (default) keeps json_object-only.
+    json_schema_mode: off
+    # OpenRouter service tiers (https://openrouter.ai/docs/guides/features/service-tiers).
+    # Adds a `service_tier` field on outbound chat completions so background
+    # work can run on the cheaper/slower "flex" backend while interactive
+    # paths stay on the default. Allowed values: "" (omit field; upstream
+    # picks), "default", "flex", "priority". Empty (default) preserves
+    # pre-V2.x behavior — no field is sent.
+    #
+    # Ignored when pointing at a non-OpenRouter endpoint (local Ollama / LM
+    # Studio ignore the field), though some providers may 400 on unknown
+    # fields — leave empty when running against a local server.
+    service_tier_background: ""    # set to "flex" on OpenRouter for cron + manual *Now triggers (morning synth, recognition, inject)
+    service_tier_interactive: ""   # set to "priority" if you want chat/Ask responses to skip the default queue
+
+  # Native Gemini client knobs. Consulted when provider == "gemini".
+  # API key falls back to the GEMINI_API_KEY env var if left empty here.
+  gemini:
+    api_key: ""
+    # Model selection. Gemini model IDs ("gemini-3.5-flash",
+    # "gemini-3-pro", etc.) differ from OpenAI-compat names, so the
+    # Gemini block carries its own. Empty falls back to the common
+    # llm.model above — useful for single-provider deployments where
+    # one model field is enough.
+    model: gemini-3.5-flash
+    # Optional Vertex AI base URL override. Empty targets the public
+    # generativelanguage.googleapis.com endpoint via the SDK default.
+    endpoint: ""
+    # Opt-in flag for Google Search grounding. When true, the Gemini
+    # provider attaches the google_search tool on calls that request it
+    # via WithGoogleSearch(); the response surfaces citation chunks via
+    # ChatResult.Citations. Off by default to prevent accidental cost
+    # from search-billed runs.
+    enable_google_search: false
+    # Thinking level (Gemini 3+ knob; replaces the deprecated
+    # thinkingBudget). One of: "" (SDK default) | "minimal" | "low" |
+    # "medium" | "high". Background runs (morning synth, recognition,
+    # retrospective) get the more thorough setting; interactive paths
+    # (chat, Ask, draft) get the lower-latency setting.
+    thinking_level_background: high
+    thinking_level_interactive: low
+    # When true, the model emits thought summaries that the streaming
+    # surface routes to StreamThinkingFunc → trace UI. Off skips the
+    # round-trip cost for surfaces that don't render thoughts.
+    include_thoughts: true
+    # Gemini service tier (https://ai.google.dev/gemini-api/docs/service-tiers).
+    # Routes the call through the corresponding billing/latency queue.
+    # Allowed: "" (omit; the standard tier applies) | "flex" (cheaper,
+    # higher latency) | "standard" (default) | "priority" (faster,
+    # higher cost; requires quota). Background runs default to "flex"
+    # for cost on work the operator isn't watching; interactive paths
+    # default to "" so chat latency isn't degraded by an explicit tier.
+    service_tier_background: flex
+    service_tier_interactive: ""
 
 # Per-stage timeout budgets for the morning synthesizer run. The cron tick
 # enforces cron_budget_sec as a hard ceiling; the runner subdivides it
@@ -111,6 +160,15 @@ synth:
   briefing_timeout_sec: 45   # briefing single-call
   cron_budget_sec:      90   # cards + briefing + margin
   tool_timeout_sec:     5    # per individual tool execution inside the loop
+  # Per-call deadline for the loop's FINAL wrap-up LLM call — the one that
+  # produces the answer after the tool-call iterations end (either by the
+  # model stopping naturally or hitting cards_max_iterations). This is the
+  # call that runs without tools and just emits the JSON. Default 15s
+  # matches OpenAI-class latencies; raise to 45–60 for Gemini Flash with
+  # large structured outputs, or for slower local models. Independent of
+  # cards_timeout_sec — that bounds the whole loop; this bounds the single
+  # final call within it.
+  final_call_budget_sec: 15
   # Iteration caps for the tool-using loops. Each iteration is one LLM call;
   # the loop exits early when the model emits a tool-call-free response or
   # hits the timeout. The cap is the safety net against a model that loops

@@ -24,7 +24,7 @@ func isQwen3(model string) bool {
 
 // BriefingDeps bundles everything the briefing call needs.
 type BriefingDeps struct {
-	LLM     *llm.Client
+	LLM     llm.Provider
 	Prompts *PromptSet
 	Date    string
 	State   State // V2.3.0: adaptive register the briefing is synthesized under (template uses in P2)
@@ -207,7 +207,7 @@ func briefingPreview(s string, maxLen int) string {
 // MaxTokens is no longer set per-call here; the client carries a default
 // (configurable via llm.max_tokens) so every structured-output call gets
 // the budget without each call site having to remember.
-func briefingChatOptions(client *llm.Client, temperature float32) []llm.ChatOption {
+func briefingChatOptions(client llm.Provider, temperature float32) []llm.ChatOption {
 	opts := []llm.ChatOption{llm.WithTemperature(temperature)}
 	if client.JSONSchemaEnabled() {
 		opts = append(opts, llm.WithJSONSchema("briefing", BriefingSchemaMap()))

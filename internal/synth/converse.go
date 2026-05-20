@@ -51,7 +51,7 @@ type PriorTurn struct {
 // minus the WhatsApp / concern-declaration / morning-bias fields that
 // don't apply to a card-scoped follow-up.
 type ConverseDeps struct {
-	LLM           *llm.Client
+	LLM           llm.Provider
 	Reader        log.Reader
 	Tasks         *store.TaskRepo // V2.11: backs read_tasks
 	ProjCfg       projection.Config
@@ -61,9 +61,10 @@ type ConverseDeps struct {
 	Date          string
 	Now           time.Time
 	State         State
-	Deadline      time.Duration
-	ToolTimeout   time.Duration
-	MaxIterations int
+	Deadline        time.Duration
+	ToolTimeout     time.Duration
+	FinalCallBudget time.Duration // per-call deadline for the loop's final wrap-up LLM call; 0 → 15s (llm.LoopConfig default)
+	MaxIterations   int
 	Logger        *logrus.Entry
 
 	Bus *eventbus.Bus
@@ -217,9 +218,12 @@ func Converse(ctx context.Context, d ConverseDeps, query string) (retCard SubCar
 	if d.SendWhatsAppMessage != nil {
 		reg.Register(&SendWhatsAppMessageTool{Preview: d.SendWhatsAppMessage})
 	}
+	nativeSearch := d.LLM != nil && d.LLM.NativeSearchEnabled()
 	if d.JinaClient != nil {
 		ttls := jinaTTLs{Search: d.SearchTTL, Read: d.ReadTTL}
-		reg.Register(&SearchWebTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
+		if !nativeSearch {
+			reg.Register(&SearchWebTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
+		}
 		reg.Register(&ReadURLTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
 	}
 
@@ -235,14 +239,20 @@ func Converse(ctx context.Context, d ConverseDeps, query string) (retCard SubCar
 	if d.JinaClient != nil && (toolTimeout <= 0 || toolTimeout < 20*time.Second) {
 		toolTimeout = 20 * time.Second
 	}
+	var loopChatOpts []llm.ChatOption
+	if nativeSearch {
+		loopChatOpts = append(loopChatOpts, llm.WithGoogleSearch())
+	}
 
 	result, loopErr := llm.RunLoop(ctx, d.LLM, systemBuf.String(), query, reg, llm.LoopConfig{
-		MaxIterations: maxIter,
-		Deadline:      deadline,
-		ToolTimeout:   toolTimeout,
-		Logger:        logger,
-		Stage:         "card_converse",
-		Observer:      d.LoopObserver,
+		MaxIterations:    maxIter,
+		Deadline:         deadline,
+		ToolTimeout:      toolTimeout,
+		FinalCallBudget:  d.FinalCallBudget,
+		ChatOptions:      loopChatOpts,
+		Logger:           logger,
+		Stage:            "card_converse",
+		Observer:         d.LoopObserver,
 	})
 
 	if loopErr != nil {

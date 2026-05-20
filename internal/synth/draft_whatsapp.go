@@ -53,7 +53,7 @@ type DraftWhatsAppContext struct {
 
 // DraftWhatsAppOpts tunes the synth call.
 type DraftWhatsAppOpts struct {
-	LLM      *llm.Client
+	LLM      llm.Provider
 	Voice    string        // typically PromptSet.VoiceShort
 	Deadline time.Duration // default 20s
 }

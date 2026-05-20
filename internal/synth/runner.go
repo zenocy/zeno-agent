@@ -29,7 +29,7 @@ import (
 // slow briefing call can't starve the cards persistence; on briefing failure
 // the cards are persisted anyway with a degraded-briefing fallback row.
 type Runner struct {
-	LLM      *llm.Client
+	LLM      llm.Provider
 	Reader   log.Reader
 	Tasks    *store.TaskRepo // V2.11: backs read_tasks; nil → tool returns empty
 	DB       *gorm.DB
@@ -62,6 +62,10 @@ type Runner struct {
 	CardsTimeout    time.Duration
 	BriefingTimeout time.Duration
 	ToolTimeout     time.Duration
+	// FinalCallBudget caps the loop's final wrap-up LLM call (the call
+	// that produces the answer after MaxIterations is reached). Zero
+	// falls back to llm.LoopConfig default (15s).
+	FinalCallBudget time.Duration
 
 	// Cards-loop iteration cap. Zero falls back to 6.
 	CardsMaxIterations int
@@ -240,6 +244,7 @@ func (r *Runner) Run(ctx context.Context) (retErr error) {
 		Logger:                 logger.WithField("step", "cards"),
 		LoopTimeout:            cardsTimeout,
 		ToolTimeout:            toolTimeout,
+		FinalCallBudget:        r.FinalCallBudget,
 		MaxIterations:          r.CardsMaxIterations,
 		Concerns:               activeConcerns,
 		ConcernRepo:            r.Concerns,

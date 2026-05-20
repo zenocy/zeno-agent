@@ -26,7 +26,7 @@ type injectFnDeps struct {
 	EventLog       logp.Writer
 	ProjCfg        projection.Config
 	Bus            *eventbus.Bus
-	LLM            *llm.Client
+	LLM            llm.Provider
 	Memory         *store.MemoryRepo
 	MemoryRanker   *synth.MemoryRanker
 	Prompts        *synth.PromptSet
@@ -48,6 +48,10 @@ type injectFnDeps struct {
 
 	// V2.8.1: action vocabulary the runner advertises to the LLM.
 	WiredIntents []synth.WiredIntent
+
+	// FinalCallBudget caps the loop's final wrap-up LLM call after
+	// MaxIterations. Sourced from synth.final_call_budget_sec config.
+	FinalCallBudget time.Duration
 }
 
 // buildInjectFn returns the schedule.InjectFunc the scheduler invokes on
@@ -111,23 +115,24 @@ func buildInjectFn(d injectFnDeps) schedule.InjectFunc {
 		}
 
 		injectDeps := synth.InjectDeps{
-			LLM:          d.LLM,
-			Reader:       d.Reader,
-			ProjCfg:      d.ProjCfg,
-			Memory:       d.Memory,
-			MemoryRanker: d.MemoryRanker,
-			Prompts:      d.Prompts,
-			Date:         date,
-			Now:          now,
-			Logger:       d.Logger,
-			Bus:          d.Bus, // V2.4: thread bus through so synth.started/completed publish
-			LoopObserver: d.LoopObserver,
-			OnSynthRun:   d.OnSynthRun,
-			JinaClient:   d.JinaClient,
-			JinaCache:    d.JinaCache,
-			SearchTTL:    d.SearchTTL,
-			ReadTTL:      d.ReadTTL,
-			WiredIntents: d.WiredIntents,
+			LLM:             d.LLM,
+			Reader:          d.Reader,
+			ProjCfg:         d.ProjCfg,
+			Memory:          d.Memory,
+			MemoryRanker:    d.MemoryRanker,
+			Prompts:         d.Prompts,
+			Date:            date,
+			Now:             now,
+			Logger:          d.Logger,
+			Bus:             d.Bus, // V2.4: thread bus through so synth.started/completed publish
+			LoopObserver:    d.LoopObserver,
+			OnSynthRun:      d.OnSynthRun,
+			JinaClient:      d.JinaClient,
+			JinaCache:       d.JinaCache,
+			SearchTTL:       d.SearchTTL,
+			ReadTTL:         d.ReadTTL,
+			WiredIntents:    d.WiredIntents,
+			FinalCallBudget: d.FinalCallBudget,
 		}
 		result, err := synth.SynthesizeInject(ctx, injectDeps, *signal)
 		if err != nil {

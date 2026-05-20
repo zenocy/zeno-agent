@@ -93,7 +93,7 @@ type WhatsAppDeps struct {
 	Resolver WhatsAppResolver
 	Throttle WhatsAppThrottle
 
-	LLM   *llm.Client
+	LLM   llm.Provider
 	Voice string
 
 	Reader   logp.Reader

@@ -6,7 +6,7 @@ import (
 
 // TensionBand is the inclusive [low, high] band the briefing's tension is
 // expected to land in for a given State. Bands are derived from the voice
-// canon's tension scale (`prompts/_voice.md`'s "Tension meter" + per-state
+// canon's tension scale (`internal/synth/templates/_voice.md`'s "Tension meter" + per-state
 // blocks) and may be tuned in V2.3.x once we have telemetry on the model's
 // actual distribution per state.
 type TensionBand [2]int

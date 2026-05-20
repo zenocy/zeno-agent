@@ -26,7 +26,7 @@ const InjectMaxIterations = 4
 // InjectDeps bundles everything SynthesizeInject needs to render one card
 // + a 1-paragraph briefing fragment for a mid-day inject signal.
 type InjectDeps struct {
-	LLM             *llm.Client
+	LLM             llm.Provider
 	Reader          log.Reader
 	ProjCfg         projection.Config
 	Memory          *store.MemoryRepo
@@ -39,6 +39,7 @@ type InjectDeps struct {
 	LoopTimeout     time.Duration // cards-loop deadline; 0 → 30s
 	BriefingTimeout time.Duration // fragment deadline; 0 → 30s
 	ToolTimeout     time.Duration // per-tool timeout; 0 → 5s
+	FinalCallBudget time.Duration // per-call deadline for the loop's final wrap-up LLM call; 0 → 15s (llm.LoopConfig default)
 
 	// Bus is the V2.4 typed eventbus. When non-nil, SynthesizeInject
 	// publishes synth.started / trace.step* / synth.delta* /
@@ -220,9 +221,12 @@ func SynthesizeInject(ctx context.Context, d InjectDeps, signal InjectSignal) (r
 		&ReadWeatherWindowTool{Reader: d.Reader, TZ: tz},
 		&ReadStockAlertTool{Reader: d.Reader},
 	)
+	nativeSearch := d.LLM != nil && d.LLM.NativeSearchEnabled()
 	if d.JinaClient != nil {
 		ttls := jinaTTLs{Search: d.SearchTTL, Read: d.ReadTTL}
-		reg.Register(&SearchWebTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
+		if !nativeSearch {
+			reg.Register(&SearchWebTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
+		}
 		reg.Register(&ReadURLTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
 	}
 
@@ -233,19 +237,23 @@ func SynthesizeInject(ctx context.Context, d InjectDeps, signal InjectSignal) (r
 	if d.LLM.JSONSchemaEnabled() {
 		chatOpts = append(chatOpts, llm.WithJSONSchema("inject_cards", InjectCardSetSchemaMap()))
 	}
+	if nativeSearch {
+		chatOpts = append(chatOpts, llm.WithGoogleSearch())
+	}
 
 	// Inject cards loop runs json_schema-constrained — only stream trace
 	// steps; the JSON body would be unreadable noise in the live panel.
 	loopCtx, loopCancel := context.WithTimeout(ctx, loopTimeout)
 	loopCtx = AttachLiveTrace(loopCtx, d.Bus, runID, "inject")
 	result, runErr := llm.RunLoop(loopCtx, d.LLM, systemBuf.String(), user, reg, llm.LoopConfig{
-		MaxIterations: InjectMaxIterations,
-		Deadline:      loopTimeout,
-		ToolTimeout:   toolTimeout,
-		ChatOptions:   chatOpts,
-		Logger:        d.Logger,
-		Stage:         "inject",
-		Observer:      d.LoopObserver,
+		MaxIterations:    InjectMaxIterations,
+		Deadline:         loopTimeout,
+		ToolTimeout:      toolTimeout,
+		FinalCallBudget:  d.FinalCallBudget,
+		ChatOptions:      chatOpts,
+		Logger:           d.Logger,
+		Stage:            "inject",
+		Observer:         d.LoopObserver,
 	})
 	loopCancel()
 

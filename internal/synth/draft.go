@@ -23,7 +23,7 @@ type DraftReplyContext struct {
 
 // DraftReplyOpts tunes the drafting call. Zero values use sensible defaults.
 type DraftReplyOpts struct {
-	LLM      *llm.Client
+	LLM      llm.Provider
 	Voice    string        // typically PromptSet.VoiceShort
 	Deadline time.Duration // default 30s
 	Stage    string        // observability tag; default "draft_reply"

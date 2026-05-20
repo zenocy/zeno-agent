@@ -37,7 +37,7 @@ func startMetricsPublisher(
 	bus *eventbus.Bus,
 	mt *metrics.Metrics,
 	db *gorm.DB,
-	llmClient *llm.Client,
+	llmClient llm.Provider,
 	reader zlog.Reader,
 	startedAt time.Time,
 	log *logrus.Entry,
@@ -85,7 +85,7 @@ func startMetricsPublisher(
 func computeHealth(
 	ctx context.Context,
 	db *gorm.DB,
-	llmClient *llm.Client,
+	llmClient llm.Provider,
 	reader zlog.Reader,
 	startedAt time.Time,
 ) eventbus.HealthChangedEvent {

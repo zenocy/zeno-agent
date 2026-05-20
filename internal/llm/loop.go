@@ -26,6 +26,21 @@ type LoopConfig struct {
 	ChatOptions   []ChatOption  // applied to every ChatCompletion call in the loop (max_tokens, schema, etc.)
 	Logger        *logrus.Entry
 
+	// FinalCallBudget is the wall-clock budget reserved for the
+	// "iteration cap reached, produce a final answer" synthesis call
+	// that runs after MaxIterations is exhausted. Without a reserved
+	// budget, a loop body that consumes the full Deadline always
+	// starves this call — the user-visible answer disappears precisely
+	// when the loop worked hardest to gather context. Default 15s.
+	//
+	// The final call's ctx is a fresh sub-context of the parent ctx
+	// (the one supplied to RunLoop, *not* the Deadline-bounded loop
+	// ctx) so the budget is additive on top of Deadline. The parent
+	// ctx still bounds the total — a cron-budget-bounded parent will
+	// cap the final call, but an unbounded reactive HTTP request will
+	// let it run its full window.
+	FinalCallBudget time.Duration
+
 	// Stage labels metric series with the synth stage that owns this loop —
 	// "cards" | "briefing" | "inject" | "reactive_ask" | "recognition".
 	// Empty stage falls back to "unknown" inside the metrics package so a
@@ -51,6 +66,7 @@ type LoopObserver struct {
 type LoopStats struct {
 	Iterations       int
 	PromptTokens     int
+	CachedTokens     int
 	CompletionTokens int
 	RepairAttempts   int
 }
@@ -115,7 +131,15 @@ func RunLoop(
 	if cfg.ToolTimeout <= 0 {
 		cfg.ToolTimeout = 5 * time.Second
 	}
+	if cfg.FinalCallBudget <= 0 {
+		cfg.FinalCallBudget = 15 * time.Second
+	}
 
+	// Retain the parent ctx so the iteration-cap synthesis call can
+	// run against its own budget independent of the loop's Deadline.
+	// Without this, a loop body that consumes the full Deadline always
+	// starves the synthesis call that produces the user-visible answer.
+	parentCtx := ctx
 	ctx, cancel := context.WithTimeout(ctx, cfg.Deadline)
 	defer cancel()
 
@@ -179,6 +203,7 @@ func RunLoop(
 				"iteration":  i + 1,
 				"ms":         callMs,
 				"prompt_tok": cr.PromptTokens,
+				"cached_tok": cr.CachedTokens,
 				"comp_tok":   cr.CompletionTokens,
 				"tools":      len(cr.ToolCalls),
 			}).Info("llm: call complete")
@@ -196,6 +221,7 @@ func RunLoop(
 			return finalize(trace, "", StopError, stats, repairs), err
 		}
 		stats.PromptTokens += cr.PromptTokens
+		stats.CachedTokens += cr.CachedTokens
 		stats.CompletionTokens += cr.CompletionTokens
 
 		// Reasoning-model thinking: when the upstream split chain-of-thought
@@ -251,6 +277,7 @@ func RunLoop(
 				recordThought(t)
 			}
 			memories = appendMemoriesCapped(memories, mems)
+			recordCitations(cr.Citations, recordTool)
 			if cfg.Observer.OnLoopIters != nil {
 				cfg.Observer.OnLoopIters(cfg.Stage, stats.Iterations)
 			}
@@ -344,13 +371,22 @@ func RunLoop(
 		}
 	}
 
-	// Iteration cap: ask the model to finalize without tools.
+	// Iteration cap: ask the model to finalize without tools. Runs
+	// against a fresh sub-context of parentCtx with its own
+	// FinalCallBudget so a fully-consumed loop Deadline doesn't
+	// starve the synthesis call — slow remote providers (Gemini with
+	// thinking + a 10K-token tool-result context) frequently need
+	// 10-15s of dedicated headroom that the loop body has already
+	// burned through.
+	finalCtx, finalCancel := context.WithTimeout(parentCtx, cfg.FinalCallBudget)
+	defer finalCancel()
+
 	msgs = append(msgs, Message{
 		Role:    "system",
 		Content: "Iteration cap reached. Produce a final answer using only what you have; do not call any more tools.",
 	})
 	callStart := time.Now()
-	cr, err := c.ChatCompletion(ctx, msgs, nil, cfg.ChatOptions...)
+	cr, err := c.ChatCompletion(finalCtx, msgs, nil, cfg.ChatOptions...)
 	callDur := time.Since(callStart)
 	callMs := callDur.Milliseconds()
 	callOutcome := outcomeFor(err)
@@ -432,6 +468,35 @@ func finalize(trace *Accumulator, content, stopped string, stats LoopStats, repa
 // summarizeThinking is the package-internal alias for SummarizeText kept so
 // the loop's existing callers don't need to change.
 func summarizeThinking(s string) string { return SummarizeText(s) }
+
+// recordCitations appends one trace step per Citation surfaced by a
+// grounding-enabled provider response (currently only Gemini's Google
+// Search grounding). Op verb is "CITE"; target is the source title or
+// URI; note carries the URI when both title and URI are present so
+// trace consumers can render a link without a second lookup. Empty
+// citation list is a no-op.
+//
+// Citations live at LLM-call granularity, distinct from the per-tool-
+// call refs collected via WithRefsCollector — overloading the latter
+// would conflate "this tool produced observation IDs" with "the model
+// cited these external sources."
+func recordCitations(citations []Citation, recordTool func(op, target, note string)) {
+	if recordTool == nil {
+		return
+	}
+	for _, c := range citations {
+		target := c.Title
+		note := c.URI
+		if target == "" {
+			target = c.URI
+			note = ""
+		}
+		if target == "" {
+			continue
+		}
+		recordTool("CITE", target, note)
+	}
+}
 
 // SummarizeText returns a short, single-sentence summary of arbitrary prose
 // suitable for one Trace thought step. The full thinking from a reasoning

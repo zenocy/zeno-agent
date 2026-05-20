@@ -97,7 +97,7 @@ func (c *Client) ChatCompletionStream(
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
 	}
-	tier := resolveServiceTier(ctx, o.serviceTier)
+	tier := c.resolveServiceTier(ctx, o.serviceTier)
 	if tier != "" {
 		req.ServiceTier = openai.ServiceTier(tier)
 	}
@@ -137,6 +137,7 @@ func (c *Client) ChatCompletionStream(
 		"json_schema":       o.jsonSchemaName,
 		"service_tier":      tier,
 		"prompt_tokens":     res.PromptTokens,
+		"cached_tokens":     res.CachedTokens,
 		"completion_tokens": res.CompletionTokens,
 		"finish_reason":     res.FinishReason,
 		"duration_ms":       res.TotalDuration.Milliseconds(),
@@ -191,6 +192,7 @@ func aggregateStream(
 		toolCallsByIndex  = map[int]*partialToolCall{}
 		finishReason      string
 		promptTokens      int
+		cachedTokens      int
 		completionTokens  int
 		firstByteCaptured bool
 		firstByteAt       time.Duration
@@ -216,6 +218,9 @@ func aggregateStream(
 		if chunk.Usage != nil {
 			promptTokens = chunk.Usage.PromptTokens
 			completionTokens = chunk.Usage.CompletionTokens
+			if chunk.Usage.PromptTokensDetails != nil {
+				cachedTokens = chunk.Usage.PromptTokensDetails.CachedTokens
+			}
 		}
 
 		for _, choice := range chunk.Choices {
@@ -272,6 +277,7 @@ func aggregateStream(
 		FirstByteDuration: firstByteAt,
 		FinishReason:      finishReason,
 		PromptTokens:      promptTokens,
+		CachedTokens:      cachedTokens,
 		CompletionTokens:  completionTokens,
 	}
 

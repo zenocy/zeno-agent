@@ -27,6 +27,27 @@ type streamThinkingKey struct{}
 type streamProgressKey struct{}
 type perCallDeadlineKey struct{}
 type serviceTierKey struct{}
+type callProfileKey struct{}
+
+// CallProfile labels a chat completion call as either "background"
+// (cron-fired or manually-triggered work the operator isn't actively
+// watching) or "interactive" (chat, Ask, draft, voice). Each provider
+// maps the profile to its own latency/cost knob:
+//
+//   - OpenAI/OpenRouter: service_tier (background→flex, interactive→priority)
+//   - Gemini: thinkingConfig.thinkingLevel (background→high, interactive→low)
+//
+// The mapping table is per-provider config; the profile itself is
+// provider-agnostic so the HTTP middleware and scheduler can stamp it
+// without knowing which backend is wired up.
+type CallProfile string
+
+// Recognized CallProfile values. "" is treated as unset (no profile-
+// driven mapping; the provider falls back to its default behavior).
+const (
+	CallProfileBackground  CallProfile = "background"
+	CallProfileInteractive CallProfile = "interactive"
+)
 
 // ContextWithStreamContent returns a new context carrying a content streaming callback.
 func ContextWithStreamContent(ctx context.Context, fn StreamContentFunc) context.Context {
@@ -95,11 +116,19 @@ func ServiceTierFromContext(ctx context.Context) string {
 	return t
 }
 
-// resolveServiceTier picks the per-call ChatOption value when non-empty,
-// falling back to the ctx-borne value. "" means: omit the field entirely.
-func resolveServiceTier(ctx context.Context, opt string) string {
-	if opt != "" {
-		return opt
+// ContextWithCallProfile attaches a CallProfile to ctx. Empty profile
+// returns ctx unchanged so callers can pass a config value verbatim
+// without guarding for the unset case.
+func ContextWithCallProfile(ctx context.Context, p CallProfile) context.Context {
+	if p == "" {
+		return ctx
 	}
-	return ServiceTierFromContext(ctx)
+	return context.WithValue(ctx, callProfileKey{}, p)
+}
+
+// CallProfileFromContext returns the CallProfile carried by ctx, or ""
+// if unset.
+func CallProfileFromContext(ctx context.Context) CallProfile {
+	p, _ := ctx.Value(callProfileKey{}).(CallProfile)
+	return p
 }

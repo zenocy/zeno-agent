@@ -32,7 +32,7 @@ const ReactivePoolLimit = 30
 
 // ReactiveDeps bundles everything Ask needs. Constructed per request.
 type ReactiveDeps struct {
-	LLM           *llm.Client
+	LLM           llm.Provider
 	Reader        log.Reader
 	Tasks         *store.TaskRepo // V2.11: backs read_tasks; nil → tool returns empty
 	ProjCfg       projection.Config
@@ -42,9 +42,10 @@ type ReactiveDeps struct {
 	Date          string // YYYY-MM-DD in local TZ
 	Now           time.Time
 	State         State         // V2.3.0 P2: one-line register hint inlined into reactive.tmpl; full fork is V2.3.1
-	Deadline      time.Duration // loop deadline; 0 → 45s default
-	ToolTimeout   time.Duration // per-tool execution timeout; 0 → 5s
-	MaxIterations int           // max reactive-loop LLM calls; 0 → 4
+	Deadline        time.Duration // loop deadline; 0 → 45s default
+	ToolTimeout     time.Duration // per-tool execution timeout; 0 → 5s
+	FinalCallBudget time.Duration // per-call deadline for the loop's final wrap-up LLM call; 0 → 15s (llm.LoopConfig default)
+	MaxIterations   int           // max reactive-loop LLM calls; 0 → 4
 	Logger        *logrus.Entry
 
 	// V2.5.0 Phase 2: optional declare_concern wiring. All four must be
@@ -313,9 +314,20 @@ func Ask(ctx context.Context, d ReactiveDeps, query string) (retCard Card, retTr
 	}
 	// V2.6: web tools. Registered together — the LLM is told to call
 	// search_web first, then read_url on a result if needed.
+	//
+	// V2.x: when the provider has native search grounding (Gemini's
+	// google_search) and it's enabled in config, skip search_web — the
+	// model gets a more capable grounding path via WithGoogleSearch()
+	// on every loop call, and citations come back via
+	// ChatResult.Citations. read_url stays registered whenever
+	// JinaClient is wired (Gemini has no native fetch for arbitrary
+	// URLs).
+	nativeSearch := d.LLM != nil && d.LLM.NativeSearchEnabled()
 	if d.JinaClient != nil {
 		ttls := jinaTTLs{Search: d.SearchTTL, Read: d.ReadTTL}
-		reg.Register(&SearchWebTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
+		if !nativeSearch {
+			reg.Register(&SearchWebTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
+		}
 		reg.Register(&ReadURLTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
 	}
 
@@ -339,6 +351,10 @@ func Ask(ctx context.Context, d ReactiveDeps, query string) (retCard Card, retTr
 	if d.JinaClient != nil && (toolTimeout <= 0 || toolTimeout < 20*time.Second) {
 		toolTimeout = 20 * time.Second
 	}
+	var loopChatOpts []llm.ChatOption
+	if nativeSearch {
+		loopChatOpts = append(loopChatOpts, llm.WithGoogleSearch())
+	}
 
 	// Memory extraction is no longer co-launched here. It runs detached from
 	// the request in the HTTP handler so the answer loop's latency is never
@@ -348,12 +364,14 @@ func Ask(ctx context.Context, d ReactiveDeps, query string) (retCard Card, retTr
 	// See AskHandler.runDetachedExtractor.
 
 	result, loopErr := llm.RunLoop(ctx, d.LLM, systemBuf.String(), query, reg, llm.LoopConfig{
-		MaxIterations: maxIter,
-		Deadline:      deadline,
-		ToolTimeout:   toolTimeout,
-		Logger:        log,
-		Stage:         "reactive_ask",
-		Observer:      d.LoopObserver,
+		MaxIterations:    maxIter,
+		Deadline:         deadline,
+		ToolTimeout:      toolTimeout,
+		FinalCallBudget:  d.FinalCallBudget,
+		ChatOptions:      loopChatOpts,
+		Logger:           log,
+		Stage:            "reactive_ask",
+		Observer:         d.LoopObserver,
 	})
 
 	if loopErr != nil {

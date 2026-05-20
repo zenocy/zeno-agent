@@ -760,7 +760,25 @@ func relaxSchemaForLLM(in map[string]any) map[string]any {
 		if stripped[k] {
 			continue
 		}
+		// Gemini rejects schemas whose enum arrays contain empty strings
+		// (400 INVALID_ARGUMENT: "enum[N]: cannot be empty"). Our zen tags
+		// use leading `|` to allow "" as a valid value, but on the LLM
+		// side we drop the enum constraint entirely when it includes ""
+		// rather than filtering — filtering would forbid the empty value
+		// the model is supposed to emit. Strict post-parse validation
+		// against the non-relaxed schema still enforces the full enum.
+		if k == "enum" {
+			if arr, ok := v.([]any); ok {
+				for _, e := range arr {
+					if s, isStr := e.(string); isStr && s == "" {
+						goto skipEnum
+					}
+				}
+			}
+		}
 		out[k] = relaxValue(v)
+		continue
+	skipEnum:
 	}
 	return out
 }

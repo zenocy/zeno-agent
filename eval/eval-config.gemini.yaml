@@ -1,0 +1,33 @@
+# eval/eval-config.gemini.yaml
+#
+# Eval harness configuration that routes through the native Gemini
+# provider. Run with `make eval-gemini`.
+#
+# API key sourcing: the GEMINI_API_KEY env var is consulted when the
+# YAML field below is empty. Setting either works.
+
+server:
+  port: 7777
+
+auth:
+  enabled: false
+
+llm:
+  provider: gemini
+
+  # Common knobs (used by retry/timeout/budgets across providers).
+  timeout_sec: 180
+  retry_max_attempts: 3
+  retry_initial_backoff_ms: 250
+  retry_max_backoff_ms: 8000
+  max_tokens: 0   # let Gemini pick its own ceiling
+
+  gemini:
+    api_key: ""                              # falls back to GEMINI_API_KEY env
+    model: gemini-3.5-flash                  # Gemini 3.5 Flash; override with `-model …` when iterating
+    enable_google_search: false              # opt in per-fixture once we add grounding-eval cases
+    thinking_level_background: high          # cron-equivalent surfaces (morning_calm, retrospective)
+    thinking_level_interactive: low          # reactive Ask fixtures
+    include_thoughts: true
+    service_tier_background: flex            # eval runs aren't latency-critical; flex saves cost
+    service_tier_interactive: ""             # reactive fixtures use the standard tier

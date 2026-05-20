@@ -31,6 +31,34 @@ func (s *scriptedCompleter) ChatCompletion(_ context.Context, _ []Message, _ []T
 	return out, nil
 }
 
+// recordingCompleter tracks the ctx deadline visible to each call and
+// burns wall-clock time on each turn so tests can reason about ctx
+// budgeting across loop body vs final synthesis.
+type recordingCompleter struct {
+	turns         []ChatResult
+	idx           int
+	sleepPerTurn  time.Duration
+	deadlinesSeen []time.Time
+}
+
+func (r *recordingCompleter) ChatCompletion(ctx context.Context, _ []Message, _ []ToolDefinition, _ ...ChatOption) (ChatResult, error) {
+	dl, _ := ctx.Deadline()
+	r.deadlinesSeen = append(r.deadlinesSeen, dl)
+	if r.sleepPerTurn > 0 {
+		select {
+		case <-ctx.Done():
+			return ChatResult{}, ctx.Err()
+		case <-time.After(r.sleepPerTurn):
+		}
+	}
+	if r.idx >= len(r.turns) {
+		return ChatResult{Content: "fallback final"}, nil
+	}
+	out := r.turns[r.idx]
+	r.idx++
+	return out, nil
+}
+
 // stubTool returns a fixed string and records the args it was called with.
 type stubTool struct {
 	name   string
@@ -179,6 +207,77 @@ func TestRunLoop_Deadline(t *testing.T) {
 	cancel()
 	res, _ := RunLoop(ctx, c, "sys", "user", NewRegistry(), LoopConfig{MaxIterations: 3, Deadline: time.Hour})
 	require.Equal(t, StopDeadline, res.Stopped)
+}
+
+// TestRunLoop_FinalCallBudget_IsIndependentOfLoopDeadline pins the
+// fix for the Gemini iteration_cap timeout symptom: when the loop body
+// burns its full Deadline budget, the iteration-cap synthesis call
+// must still get its own FinalCallBudget window on a fresh sub-context
+// of the parent ctx. Without this fix, the synthesis call inherits the
+// already-cancelled loop ctx and returns "context deadline exceeded"
+// before sending a byte to the model.
+func TestRunLoop_FinalCallBudget_IsIndependentOfLoopDeadline(t *testing.T) {
+	tool := &stubTool{name: "read_thread", out: "thread body"}
+	// Three iterations all emit a tool call → the loop hits iteration
+	// cap on every run. The final entry is the iteration-cap synthesis
+	// content; the loop never reaches it through the for-loop body
+	// because every body turn is a tool call.
+	c := &recordingCompleter{
+		turns: []ChatResult{
+			{ToolCalls: []ToolCall{{ID: "t1", Name: "read_thread", Arguments: map[string]any{"x": "a"}}}},
+			{ToolCalls: []ToolCall{{ID: "t2", Name: "read_thread", Arguments: map[string]any{"x": "b"}}}},
+			{ToolCalls: []ToolCall{{ID: "t3", Name: "read_thread", Arguments: map[string]any{"x": "c"}}}},
+			{Content: "final synthesis answer"},
+		},
+	}
+	reg := NewRegistry(tool)
+	res, err := RunLoop(context.Background(), c, "sys", "user", reg, LoopConfig{
+		MaxIterations:   3,
+		Deadline:        500 * time.Millisecond,
+		FinalCallBudget: 2 * time.Second,
+	})
+	require.NoError(t, err)
+	require.Equal(t, StopIterationCap, res.Stopped)
+	require.Equal(t, "final synthesis answer", res.Content,
+		"final synthesis must run successfully even after the loop body's Deadline window is exhausted")
+
+	// Confirm the final call's ctx deadline is independent of (and
+	// later than) the loop body's deadline.
+	require.Len(t, c.deadlinesSeen, 4, "3 loop body calls + 1 final synthesis = 4 deadlines observed")
+	loopBodyDeadline := c.deadlinesSeen[0]
+	finalCallDeadline := c.deadlinesSeen[3]
+	require.True(t, finalCallDeadline.After(loopBodyDeadline.Add(500*time.Millisecond)),
+		"final call's deadline must extend past the loop body's deadline by ~FinalCallBudget; got loop=%v final=%v",
+		loopBodyDeadline, finalCallDeadline)
+}
+
+// TestRunLoop_FinalCallBudget_RespectsParentCtxDeadline confirms the
+// final synthesis budget is still capped by the parent ctx — a cron
+// budget of, say, 90s upstream still bounds the call even if
+// FinalCallBudget is set to something larger.
+func TestRunLoop_FinalCallBudget_RespectsParentCtxDeadline(t *testing.T) {
+	tool := &stubTool{name: "read_thread", out: "ok"}
+	c := &recordingCompleter{
+		turns: []ChatResult{
+			{ToolCalls: []ToolCall{{ID: "t1", Name: "read_thread", Arguments: map[string]any{"x": "a"}}}},
+			{Content: "ignored, ctx will be expired"},
+		},
+	}
+	reg := NewRegistry(tool)
+	// Parent ctx caps total at 250ms. FinalCallBudget of 10s shouldn't
+	// extend past it.
+	parent, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+	_, _ = RunLoop(parent, c, "sys", "user", reg, LoopConfig{
+		MaxIterations:   1,
+		Deadline:        100 * time.Millisecond,
+		FinalCallBudget: 10 * time.Second,
+	})
+	require.GreaterOrEqual(t, len(c.deadlinesSeen), 1)
+	parentDeadline, _ := parent.Deadline()
+	finalDeadline := c.deadlinesSeen[len(c.deadlinesSeen)-1]
+	require.False(t, finalDeadline.After(parentDeadline),
+		"final call's deadline must not extend past the parent ctx deadline")
 }
 
 func TestExtractThoughts(t *testing.T) {

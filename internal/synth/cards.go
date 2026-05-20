@@ -59,7 +59,7 @@ const CardsPoolLimit = 50
 // CardsDeps bundles everything the cards synthesis step needs. Constructed
 // once by Runner per synth run.
 type CardsDeps struct {
-	LLM           *llm.Client
+	LLM           llm.Provider
 	Reader        log.Reader
 	Tasks         *store.TaskRepo // V2.11: backs read_tasks; nil → tool returns empty
 	ProjCfg       projection.Config
@@ -70,9 +70,10 @@ type CardsDeps struct {
 	Now           time.Time
 	State         State // V2.3.0: register the cards prompt is biased under (cards_system.tmpl renders .StateBias)
 	Logger        *logrus.Entry
-	LoopTimeout   time.Duration // cards-loop deadline; 0 → 30s
-	ToolTimeout   time.Duration // per-tool execution timeout; 0 → 5s
-	MaxIterations int           // max cards-loop LLM calls; 0 → 4
+	LoopTimeout     time.Duration // cards-loop deadline; 0 → 30s
+	ToolTimeout     time.Duration // per-tool execution timeout; 0 → 5s
+	FinalCallBudget time.Duration // per-call deadline for the loop's final wrap-up LLM call; 0 → 15s (llm.LoopConfig default)
+	MaxIterations   int           // max cards-loop LLM calls; 0 → 4
 
 	// V2.5.0 Phase 3: optional concern context.
 	//
@@ -198,9 +199,19 @@ func SynthesizeCards(ctx context.Context, d CardsDeps) (CardSet, llm.Trace, []ll
 		&ReadTasksTool{Tasks: d.Tasks, Reader: d.Reader, Now: func() time.Time { return d.Now }, TZ: tz},
 		&ReadStockAlertTool{Reader: d.Reader},
 	)
+	// V2.x: when the provider has native search grounding (Gemini's
+	// google_search) and it's enabled in config, skip the third-party
+	// search_web tool — the model gets a more capable grounding path
+	// via WithGoogleSearch() on every loop call, and citations come
+	// back via ChatResult.Citations instead of through a tool round-
+	// trip. read_url is still useful (Gemini has no native fetch) so
+	// it stays registered whenever JinaClient is wired.
+	nativeSearch := d.LLM != nil && d.LLM.NativeSearchEnabled()
 	if d.JinaClient != nil {
 		ttls := jinaTTLs{Search: d.SearchTTL, Read: d.ReadTTL}
-		reg.Register(&SearchWebTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
+		if !nativeSearch {
+			reg.Register(&SearchWebTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
+		}
 		reg.Register(&ReadURLTool{Client: d.JinaClient, Cache: d.JinaCache, TTLs: ttls})
 	}
 
@@ -216,13 +227,19 @@ func SynthesizeCards(ctx context.Context, d CardsDeps) (CardSet, llm.Trace, []ll
 	if d.JinaClient != nil && (toolTimeout <= 0 || toolTimeout < 20*time.Second) {
 		toolTimeout = 20 * time.Second
 	}
+	var loopChatOpts []llm.ChatOption
+	if nativeSearch {
+		loopChatOpts = append(loopChatOpts, llm.WithGoogleSearch())
+	}
 	result, err := llm.RunLoop(ctx, d.LLM, systemBuf.String(), user, reg, llm.LoopConfig{
-		MaxIterations: maxIter,
-		Deadline:      loopDeadline,
-		ToolTimeout:   toolTimeout,
-		Logger:        d.Logger,
-		Stage:         "cards",
-		Observer:      d.LoopObserver,
+		MaxIterations:    maxIter,
+		Deadline:         loopDeadline,
+		ToolTimeout:      toolTimeout,
+		FinalCallBudget:  d.FinalCallBudget,
+		ChatOptions:      loopChatOpts,
+		Logger:           d.Logger,
+		Stage:            "cards",
+		Observer:         d.LoopObserver,
 	})
 	if err != nil {
 		return CardSet{}, result.Trace, result.Memories, fmt.Errorf("run cards loop (stopped=%s): %w", result.Stopped, err)

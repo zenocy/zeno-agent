@@ -112,7 +112,7 @@ type RetrospectiveOpts struct {
 
 // RetrospectiveDeps wires the runner. Bus + EventLog optional.
 type RetrospectiveDeps struct {
-	LLM          *llm.Client
+	LLM          llm.Provider
 	Reader       log.Reader
 	Concerns     *store.ConcernRepo
 	Observations *store.ConcernObservationRepo

@@ -64,8 +64,9 @@ Two reactive paths sit alongside the cron loop:
 ## Voice
 
 Voice is the product. If a Zeno briefing reads like ChatGPT, the
-product is dead — so every prompt in `prompts/` includes a voice rules
-preamble (`prompts/_voice.md`). The shape:
+product is dead — so every prompt under `internal/synth/templates/`
+includes a voice rules preamble (`_voice.md` / `_voice_short.md`).
+The shape:
 
 - **Calm.** No exclamation marks, no urgency markers, no emoji.
 - **Opinionated.** Tells, doesn't ask. *"Reply to Saru first — the
@@ -84,7 +85,7 @@ The five adaptive states each pull the voice into a different register
 — `pre_meeting` braces the user for one charged event in the next two
 hours; `deep_work` protects a long block and trims cards; `end_of_day`
 closes today and gestures at tomorrow's first thing. State-specific
-rules and cards-bias overlays live in `prompts/_voice.md`; the
+rules and cards-bias overlays live in `internal/synth/templates/_voice.md`; the
 [Zeno V2 spec](Zeno%20V2/zeno-data.jsx) is the canonical exemplar.
 
 ## Quick start
@@ -101,11 +102,18 @@ You'll need:
 
 - An **IMAP** account (Fastmail, iCloud, Gmail with app password, …).
 - A **CalDAV** URL (same provider, usually).
-- An **OpenAI-compatible LLM endpoint**. The default config points at
-  Ollama on the host (`http://host.docker.internal:11434/v1`); LM
-  Studio, vLLM, or any other compatible server work too. A ~30B local
-  model is the sweet spot — small enough to run on a workstation, large
-  enough to hold the literary voice.
+- An **LLM provider**. Two backends are supported:
+  - `provider: openai` (default) — any OpenAI-compatible endpoint. The
+    default config points at Ollama on the host
+    (`http://host.docker.internal:11434/v1`); LM Studio, vLLM,
+    OpenRouter, etc. all work. A ~30B local model is the sweet spot —
+    small enough to run on a workstation, large enough to hold the
+    literary voice.
+  - `provider: gemini` — native Google Gemini via
+    `google.golang.org/genai`. Unlocks Google Search grounding,
+    `thinking_level`, and the `responseSchema` structured-output path.
+    Set `llm.gemini.api_key` (or `GEMINI_API_KEY` in env) and target
+    `model: gemini-3.5-flash` or newer.
 - Optional: a [Jina AI](https://jina.ai/) key to enable the
   `search_web` and `read_url` tools. Set
   `ZENO_WEB_JINA_API_KEY=jina_…` or fill in the `web.jina` block in

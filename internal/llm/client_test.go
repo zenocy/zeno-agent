@@ -329,18 +329,28 @@ func TestServiceTier_AllValuesRoundTrip(t *testing.T) {
 // resolveServiceTier is shared by both ChatCompletion (direct) and
 // ChatCompletionStream, so testing it here proves both paths pick the
 // right tier without needing two near-identical httptest harnesses.
+// Pinned precedence: per-call option > ctx ContextWithServiceTier >
+// ctx CallProfile + client config > "".
 func TestResolveServiceTier(t *testing.T) {
 	cases := []struct {
-		name    string
-		ctxTier string
-		optTier string
-		want    string
+		name       string
+		ctxTier    string
+		profile    CallProfile
+		bgTier     string
+		intTier    string
+		optTier    string
+		want       string
 	}{
-		{"both empty", "", "", ""},
-		{"ctx only", "flex", "", "flex"},
-		{"opt only", "", "priority", "priority"},
-		{"opt wins over ctx", "flex", "priority", "priority"},
-		{"empty opt falls through", "flex", "", "flex"},
+		{name: "both empty", want: ""},
+		{name: "ctx only", ctxTier: "flex", want: "flex"},
+		{name: "opt only", optTier: "priority", want: "priority"},
+		{name: "opt wins over ctx", ctxTier: "flex", optTier: "priority", want: "priority"},
+		{name: "empty opt falls through", ctxTier: "flex", want: "flex"},
+		{name: "background profile maps to config", profile: CallProfileBackground, bgTier: "flex", want: "flex"},
+		{name: "interactive profile maps to config", profile: CallProfileInteractive, intTier: "priority", want: "priority"},
+		{name: "ctx tier beats profile", ctxTier: "default", profile: CallProfileBackground, bgTier: "flex", want: "default"},
+		{name: "opt tier beats profile", optTier: "priority", profile: CallProfileBackground, bgTier: "flex", want: "priority"},
+		{name: "profile with empty config falls through", profile: CallProfileBackground, want: ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -348,7 +358,11 @@ func TestResolveServiceTier(t *testing.T) {
 			if tc.ctxTier != "" {
 				ctx = ContextWithServiceTier(ctx, tc.ctxTier)
 			}
-			require.Equal(t, tc.want, resolveServiceTier(ctx, tc.optTier))
+			if tc.profile != "" {
+				ctx = ContextWithCallProfile(ctx, tc.profile)
+			}
+			c := &Client{serviceTierBackground: tc.bgTier, serviceTierInteractive: tc.intTier}
+			require.Equal(t, tc.want, c.resolveServiceTier(ctx, tc.optTier))
 		})
 	}
 }

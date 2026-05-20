@@ -147,6 +147,7 @@ type SynthConfig struct {
 	BriefingTimeoutSec    int           `mapstructure:"briefing_timeout_sec"`    // default 45
 	CronBudgetSec         int           `mapstructure:"cron_budget_sec"`         // default 90 (cards + briefing + margin)
 	ToolTimeoutSec        int           `mapstructure:"tool_timeout_sec"`        // default 5 (per individual tool execution)
+	FinalCallBudgetSec    int           `mapstructure:"final_call_budget_sec"`   // default 15 (per-call deadline for the loop's final wrap-up LLM call after MaxIterations)
 	CardsMaxIterations    int           `mapstructure:"cards_max_iterations"`    // default 6 (LLM calls in the cards tool loop)
 	ReactiveMaxIterations int           `mapstructure:"reactive_max_iterations"` // default 4 (LLM calls in the reactive tool loop)
 	AskCardTTL            time.Duration `mapstructure:"ask_card_ttl"`            // default 6h — how long reactive ask cards stay on the main rail before aging into the archive only
@@ -173,33 +174,111 @@ type DBConfig struct {
 	Path string `mapstructure:"path"` // "./data/zeno.db"
 }
 
-// LLMConfig points at an OpenAI-compatible endpoint.
+// LLMConfig configures the LLM provider used across the synthesizer,
+// reactive surface, and eval. Multi-provider as of V2.x: Provider
+// selects between the OpenAI-compatible client and the native Gemini
+// client. The provider-agnostic knobs (model, timeouts, retry, max
+// tokens) live at this level; provider-specific knobs live in the
+// OpenAI / Gemini sub-blocks.
+//
+// Back-compat: pre-multi-provider configs declare flat openai-style
+// fields (endpoint, api_key, json_schema_mode, service_tier_*) directly
+// under llm:. Normalize() folds them into the OpenAI sub-block when the
+// sub-block leaves the corresponding field empty. The flat fields are
+// deprecated and will be removed in a future minor release.
 type LLMConfig struct {
-	Endpoint            string `mapstructure:"endpoint"`                 // e.g. http://host.docker.internal:11434/v1
-	APIKey              string `mapstructure:"api_key"`                  // optional
-	Model               string `mapstructure:"model"`                    // e.g. "gemma3:4b" or whatever
+	// Provider selects the backend. "" or "openai" → OpenAI-compatible
+	// client (Ollama, LM Studio, vLLM, OpenRouter, ...). "gemini" →
+	// native Google Gemini client. Case-insensitive. Default "openai".
+	Provider string `mapstructure:"provider"`
+
+	// Common knobs (apply to all providers).
+	Model               string `mapstructure:"model"`                    // e.g. "gemma3:4b", "gemini-3.5-flash"
 	TimeoutSec          int    `mapstructure:"timeout_sec"`              // default 120 (per-HTTP-call transport timeout — must exceed any per-stage deadline below)
 	ReactiveDeadlineSec int    `mapstructure:"reactive_deadline_sec"`    // deadline for reactive Ask loop; default 45
 	RetryMaxAttempts    int    `mapstructure:"retry_max_attempts"`       // default 3 (network-level retry attempts)
 	RetryInitialBackoff int    `mapstructure:"retry_initial_backoff_ms"` // default 250 (ms; doubles each attempt with ±20% jitter)
 	RetryMaxBackoff     int    `mapstructure:"retry_max_backoff_ms"`     // default 8000 (ms; ceiling per backoff sleep)
-	JSONSchemaMode      string `mapstructure:"json_schema_mode"`         // "auto" | "on" | "off"; default "off" until Phase 0 probe
 	MaxTokens           int    `mapstructure:"max_tokens"`               // default 0 = no cap (let the upstream provider decide). The previous 16384 was a guardrail for local llama.cpp/LM Studio runs that would happily run away on long prompts; remote providers like Gemini cap themselves and the explicit cap was strangling repair calls in thinking mode (16K tokens of reasoning + truncated JSON).
-	NoThink             bool   `mapstructure:"no_think"`                 // when true, prepend "/no_think" to the briefing system prompt on Qwen3 models; cuts briefing latency ~2min → ~30s. Default false; flip on after measuring voice with `make eval`.
+	NoThink             bool   `mapstructure:"no_think"`                 // when true, prepend "/no_think" to the briefing system prompt on Qwen3 models; cuts briefing latency ~2min → ~30s. Default false. OpenAI-side; Gemini ignores.
 
-	// ServiceTierBackground tags cron-fired and manually-triggered
-	// background LLM calls (morning synth, recognition, retrospective,
-	// sync) with OpenRouter's `service_tier` field. Allowed values:
-	// "" (omit field; upstream default), "default", "flex" (cheaper /
-	// higher latency), "priority" (faster / higher cost). Default ""
-	// keeps behavior unchanged until the operator opts in.
-	ServiceTierBackground string `mapstructure:"service_tier_background"`
-
-	// ServiceTierInteractive tags chat / Ask / draft / voice paths.
-	// Same allowed values as ServiceTierBackground; default "" omits
-	// the field. Set to "priority" if you want chat responses to skip
-	// the OpenRouter default queue.
+	// Back-compat flat fields (DEPRECATED). Operators who haven't
+	// migrated to the nested openai: block can keep these at the top
+	// level; Normalize() copies them into the OpenAI sub-block when the
+	// sub-block leaves the field empty.
+	Endpoint               string `mapstructure:"endpoint"`
+	APIKey                 string `mapstructure:"api_key"`
+	JSONSchemaMode         string `mapstructure:"json_schema_mode"`
+	ServiceTierBackground  string `mapstructure:"service_tier_background"`
 	ServiceTierInteractive string `mapstructure:"service_tier_interactive"`
+
+	// Provider-specific blocks. Only the block matching Provider is
+	// consulted by the factory; the other block is ignored.
+	OpenAI OpenAIConfig `mapstructure:"openai"`
+	Gemini GeminiConfig `mapstructure:"gemini"`
+}
+
+// OpenAIConfig carries the knobs specific to the OpenAI-compatible
+// client (Ollama, LM Studio, vLLM, OpenRouter, etc.).
+type OpenAIConfig struct {
+	Endpoint               string `mapstructure:"endpoint"`                 // e.g. http://host.docker.internal:11434/v1
+	APIKey                 string `mapstructure:"api_key"`                  // optional; required for OpenRouter / remote
+	JSONSchemaMode         string `mapstructure:"json_schema_mode"`         // "auto" | "on" | "off"; default "off"
+	StreamSchema           *bool  `mapstructure:"stream_schema"`            // nil/true → stream json_schema; false → fall back to non-streaming for schema-constrained calls
+	ServiceTierBackground  string `mapstructure:"service_tier_background"`  // "" | "default" | "flex" | "priority" — cron/background runs
+	ServiceTierInteractive string `mapstructure:"service_tier_interactive"` // same set — chat/Ask/draft paths
+}
+
+// GeminiConfig carries the knobs specific to the native Gemini client.
+// APIKey falls back to the GEMINI_API_KEY env when both YAML and the
+// sub-block leave it empty. Endpoint is normally empty (the SDK
+// targets generativelanguage.googleapis.com); set to a Vertex AI base
+// URL to route through Vertex instead. Model overrides the common
+// llm.model when set (empty falls back to llm.model so single-provider
+// deployments don't need to set the model twice).
+type GeminiConfig struct {
+	APIKey                   string `mapstructure:"api_key"`
+	Endpoint                 string `mapstructure:"endpoint"`
+	Model                    string `mapstructure:"model"`                      // optional; empty → falls back to llm.model
+	EnableGoogleSearch       bool   `mapstructure:"enable_google_search"`       // gates WithGoogleSearch() at the provider level
+	ThinkingLevelBackground  string `mapstructure:"thinking_level_background"`  // "" | "minimal" | "low" | "medium" | "high" — cron/background runs
+	ThinkingLevelInteractive string `mapstructure:"thinking_level_interactive"` // same set — chat/Ask/draft paths
+	IncludeThoughts          bool   `mapstructure:"include_thoughts"`           // surface thoughts via StreamThinkingFunc
+	// ServiceTierBackground tags cron-fired and manually-triggered
+	// background Gemini calls. Allowed: "" (standard) | "flex" |
+	// "standard" | "priority". Mirrors the OpenAI knob; Gemini's
+	// service-tier values differ from OpenRouter's so they're validated
+	// independently.
+	ServiceTierBackground  string `mapstructure:"service_tier_background"`
+	ServiceTierInteractive string `mapstructure:"service_tier_interactive"`
+}
+
+// Normalize fills derived/back-compat fields and applies the provider
+// default. Safe to call multiple times. Must be invoked after viper
+// Unmarshal and before any downstream code reads provider-specific
+// blocks.
+func (c *LLMConfig) Normalize() {
+	if strings.TrimSpace(c.Provider) == "" {
+		c.Provider = "openai"
+	}
+	if c.OpenAI.Endpoint == "" {
+		c.OpenAI.Endpoint = c.Endpoint
+	}
+	if c.OpenAI.APIKey == "" {
+		c.OpenAI.APIKey = c.APIKey
+	}
+	if c.OpenAI.JSONSchemaMode == "" {
+		c.OpenAI.JSONSchemaMode = c.JSONSchemaMode
+	}
+	if c.OpenAI.ServiceTierBackground == "" {
+		c.OpenAI.ServiceTierBackground = c.ServiceTierBackground
+	}
+	if c.OpenAI.ServiceTierInteractive == "" {
+		c.OpenAI.ServiceTierInteractive = c.ServiceTierInteractive
+	}
+	if c.Gemini.APIKey == "" {
+		c.Gemini.APIKey = os.Getenv("GEMINI_API_KEY")
+	}
 }
 
 // SensorsConfig groups all sensor settings.
@@ -354,24 +433,58 @@ func Load(path string) (*Config, error) {
 	if err := finalizeAuth(&cfg); err != nil {
 		return nil, err
 	}
+	cfg.LLM.Normalize()
 	if err := validateLLM(&cfg.LLM); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
 }
 
-// validateLLM rejects unknown values for the service-tier knobs. A typo
-// in YAML would otherwise be forwarded verbatim to OpenRouter, which
-// returns a 400; failing fast at boot is friendlier than a runtime
-// 400 from a random cron tick three hours after a config reload.
+// validateLLM checks the provider selector and rejects unknown values
+// for the provider-specific enum knobs (service tier on OpenAI,
+// thinking level on Gemini). A typo would otherwise be forwarded
+// verbatim to the upstream which returns a 400; failing fast at boot is
+// friendlier than a runtime 400 from a random cron tick three hours
+// after a config reload. Expects Normalize() to have been called.
 func validateLLM(cfg *LLMConfig) error {
-	if err := validateServiceTier("llm.service_tier_background", cfg.ServiceTierBackground); err != nil {
+	switch strings.ToLower(cfg.Provider) {
+	case "openai", "gemini":
+		// ok
+	default:
+		return fmt.Errorf("llm.provider: %q is not a valid provider (allowed: \"openai\", \"gemini\")", cfg.Provider)
+	}
+	if err := validateServiceTier("llm.openai.service_tier_background", cfg.OpenAI.ServiceTierBackground); err != nil {
 		return err
 	}
-	if err := validateServiceTier("llm.service_tier_interactive", cfg.ServiceTierInteractive); err != nil {
+	if err := validateServiceTier("llm.openai.service_tier_interactive", cfg.OpenAI.ServiceTierInteractive); err != nil {
+		return err
+	}
+	if err := validateThinkingLevel("llm.gemini.thinking_level_background", cfg.Gemini.ThinkingLevelBackground); err != nil {
+		return err
+	}
+	if err := validateThinkingLevel("llm.gemini.thinking_level_interactive", cfg.Gemini.ThinkingLevelInteractive); err != nil {
+		return err
+	}
+	if err := validateGeminiServiceTier("llm.gemini.service_tier_background", cfg.Gemini.ServiceTierBackground); err != nil {
+		return err
+	}
+	if err := validateGeminiServiceTier("llm.gemini.service_tier_interactive", cfg.Gemini.ServiceTierInteractive); err != nil {
 		return err
 	}
 	return nil
+}
+
+// validateGeminiServiceTier rejects unknown service-tier values. The
+// Gemini API has its own set ("flex", "standard", "priority") distinct
+// from OpenRouter's ("default", "flex", "priority"), so this lives
+// next to but separate from validateServiceTier.
+func validateGeminiServiceTier(key, val string) error {
+	switch val {
+	case "", "flex", "standard", "priority":
+		return nil
+	default:
+		return fmt.Errorf("%s: %q is not a valid Gemini service tier (allowed: \"\", \"flex\", \"standard\", \"priority\")", key, val)
+	}
 }
 
 func validateServiceTier(key, val string) error {
@@ -380,6 +493,15 @@ func validateServiceTier(key, val string) error {
 		return nil
 	default:
 		return fmt.Errorf("%s: %q is not a valid service tier (allowed: \"\", \"default\", \"flex\", \"priority\")", key, val)
+	}
+}
+
+func validateThinkingLevel(key, val string) error {
+	switch val {
+	case "", "minimal", "low", "medium", "high":
+		return nil
+	default:
+		return fmt.Errorf("%s: %q is not a valid thinking level (allowed: \"\", \"minimal\", \"low\", \"medium\", \"high\")", key, val)
 	}
 }
 
@@ -466,6 +588,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("synth.briefing_timeout_sec", 45)
 	v.SetDefault("synth.cron_budget_sec", 90)
 	v.SetDefault("synth.tool_timeout_sec", 5)
+	v.SetDefault("synth.final_call_budget_sec", 15)
 	v.SetDefault("synth.cards_max_iterations", 6)
 	v.SetDefault("synth.reactive_max_iterations", 4)
 	v.SetDefault("synth.ask_card_ttl", "6h")

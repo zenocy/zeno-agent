@@ -38,6 +38,16 @@ type Client struct {
 	defaultMaxTokens int    // applied to every ChatCompletion when caller doesn't override via WithMaxTokens
 	noThink          bool   // when true, callers may inspect via NoThink() and prepend "/no_think" on supported models
 
+	// Provider-agnostic CallProfile → OpenRouter service_tier mapping.
+	// When a ctx carries CallProfileBackground the client stamps
+	// service_tier = serviceTierBackground on outbound requests;
+	// CallProfileInteractive uses serviceTierInteractive. Empty mapping
+	// values omit the field (upstream picks). Both can be overridden
+	// per-call via WithServiceTier(...) or via the legacy
+	// ContextWithServiceTier(...) ctx helper.
+	serviceTierBackground  string
+	serviceTierInteractive string
+
 	// streamSchema gates whether ChatCompletionStream serves
 	// json_schema-constrained requests. Default true (the V2.4 hot
 	// path). Flip to false when the P0 streaming smoke test shows
@@ -74,6 +84,14 @@ type ClientConfig struct {
 	// affirmative form so config files read naturally
 	// (`stream_schema: false`).
 	StreamSchema *bool
+
+	// ServiceTierBackground/Interactive define the CallProfile →
+	// OpenRouter service_tier mapping the client applies on outbound
+	// requests. Wired from config.LLMConfig.OpenAI.ServiceTier*. Empty
+	// values omit the field (upstream picks). See CallProfile for the
+	// abstraction.
+	ServiceTierBackground  string
+	ServiceTierInteractive string
 }
 
 // NewClient constructs a Client.
@@ -106,18 +124,46 @@ func NewClient(cfg ClientConfig) *Client {
 	apiCfg.HTTPClient = httpClient
 
 	return &Client{
-		api:              openai.NewClientWithConfig(apiCfg),
-		httpClient:       httpClient,
-		baseURL:          baseURL,
-		apiKey:           cfg.APIKey,
-		model:            cfg.Model,
-		timeout:          cfg.Timeout,
-		retry:            cfg.Retry,
-		jsonSchemaMode:   mode,
-		defaultMaxTokens: cfg.MaxTokens,
-		noThink:          cfg.NoThink,
-		streamSchema:     streamSchema,
+		api:                    openai.NewClientWithConfig(apiCfg),
+		httpClient:             httpClient,
+		baseURL:                baseURL,
+		apiKey:                 cfg.APIKey,
+		model:                  cfg.Model,
+		timeout:                cfg.Timeout,
+		retry:                  cfg.Retry,
+		jsonSchemaMode:         mode,
+		defaultMaxTokens:       cfg.MaxTokens,
+		noThink:                cfg.NoThink,
+		streamSchema:           streamSchema,
+		serviceTierBackground:  cfg.ServiceTierBackground,
+		serviceTierInteractive: cfg.ServiceTierInteractive,
 	}
+}
+
+// resolveServiceTier picks the OpenRouter service_tier value to send
+// on a single chat completion. Precedence (highest first):
+//
+//  1. Per-call WithServiceTier(tier) ChatOption — explicit override.
+//  2. ctx-borne ContextWithServiceTier(tier) — legacy direct stamp.
+//  3. ctx-borne CallProfile + the client's serviceTier{Background,Interactive}
+//     mapping — the V2.x provider-agnostic path.
+//  4. "" — omit the field (upstream picks).
+//
+// Empty values at any tier fall through to the next.
+func (c *Client) resolveServiceTier(ctx context.Context, opt string) string {
+	if opt != "" {
+		return opt
+	}
+	if t := ServiceTierFromContext(ctx); t != "" {
+		return t
+	}
+	switch CallProfileFromContext(ctx) {
+	case CallProfileBackground:
+		return c.serviceTierBackground
+	case CallProfileInteractive:
+		return c.serviceTierInteractive
+	}
+	return ""
 }
 
 // NoThink reports whether callers should prepend "/no_think" to system
@@ -129,6 +175,12 @@ func (c *Client) NoThink() bool {
 	}
 	return c.noThink
 }
+
+// NativeSearchEnabled always returns false for OpenAI-compatible
+// endpoints — no equivalent of Gemini's google_search built-in.
+// Synth surfaces register the third-party search_web tool when
+// JinaClient is wired so the model still has a search path.
+func (c *Client) NativeSearchEnabled() bool { return false }
 
 // SetRetryInstrumentation wires the per-attempt logger and the terminal
 // observer for the retry loop. Both are optional. Safe to call once at boot
@@ -251,13 +303,57 @@ func (c *Client) Model() string {
 type ChatOption func(*chatOpts)
 
 type chatOpts struct {
-	temperature    float32
-	hasTemp        bool
-	maxTokens      int
-	jsonMode       bool
-	jsonSchemaName string
-	jsonSchemaRaw  []byte
-	serviceTier    string
+	temperature     float32
+	hasTemp         bool
+	maxTokens       int
+	jsonMode        bool
+	jsonSchemaName  string
+	jsonSchemaRaw   []byte
+	serviceTier     string
+	googleSearch    bool   // Gemini-only: enable Google Search grounding for this call
+	thinkingLevel   string // Gemini-only: per-call thinking level override
+	includeThoughts *bool  // Gemini-only: per-call include-thoughts override; nil = use config default
+}
+
+// CallParams is the exported view of the per-call ChatOption state.
+// Provider implementations outside this package (e.g. internal/llm/gemini)
+// consume it via ApplyChatOptions. OpenAI-only fields (ServiceTier) are
+// ignored by Gemini and vice-versa; the union is small enough not to
+// warrant per-provider sub-structs.
+type CallParams struct {
+	Temperature     float32
+	HasTemperature  bool
+	MaxTokens       int
+	JSONMode        bool
+	JSONSchemaName  string
+	JSONSchemaRaw   []byte
+	ServiceTier     string
+	GoogleSearch    bool
+	ThinkingLevel   string
+	IncludeThoughts *bool
+}
+
+// ApplyChatOptions runs the supplied option builders and returns the
+// resulting state as a CallParams snapshot. Used by provider
+// implementations in sibling packages to read per-call options without
+// reaching into the private chatOpts type.
+func ApplyChatOptions(opts []ChatOption) CallParams {
+	o := chatOpts{}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return CallParams{
+		Temperature:     o.temperature,
+		HasTemperature:  o.hasTemp,
+		MaxTokens:       o.maxTokens,
+		JSONMode:        o.jsonMode,
+		JSONSchemaName:  o.jsonSchemaName,
+		JSONSchemaRaw:   o.jsonSchemaRaw,
+		ServiceTier:     o.serviceTier,
+		GoogleSearch:    o.googleSearch,
+		ThinkingLevel:   o.thinkingLevel,
+		IncludeThoughts: o.includeThoughts,
+	}
 }
 
 // WithTemperature sets the sampling temperature for this call.
@@ -285,6 +381,33 @@ func WithServiceTier(tier string) ChatOption {
 // for the briefing call where the model must return one JSON object.
 func WithJSONMode() ChatOption {
 	return func(o *chatOpts) { o.jsonMode = true }
+}
+
+// WithGoogleSearch enables Google Search grounding for this call.
+// Gemini-only — the OpenAI-compatible provider ignores it. Still gated
+// at the provider level by gemini.enable_google_search (defense in
+// depth against accidental cost on search-billed runs). The response's
+// citation chunks are surfaced via ChatResult.Citations.
+func WithGoogleSearch() ChatOption {
+	return func(o *chatOpts) { o.googleSearch = true }
+}
+
+// WithThinkingLevel overrides the configured thinking_level for this
+// call. Allowed values: "minimal" | "low" | "medium" | "high".
+// Gemini-only — the OpenAI-compatible provider ignores it. Empty
+// string is a no-op so per-call hooks follow the same omit-when-unset
+// semantics as the config knob. An invalid value is rejected by the
+// Gemini provider at request time rather than silently dropped.
+func WithThinkingLevel(level string) ChatOption {
+	return func(o *chatOpts) { o.thinkingLevel = level }
+}
+
+// WithIncludeThoughts overrides the configured include_thoughts flag
+// for this call. Gemini-only. Useful when one surface (e.g. trace UI)
+// wants thoughts on while another (e.g. cron synth) wants them off
+// without flipping the global config.
+func WithIncludeThoughts(b bool) ChatOption {
+	return func(o *chatOpts) { o.includeThoughts = &b }
 }
 
 // WithJSONSchema requests `response_format: {"type":"json_schema", ...}` with
@@ -398,7 +521,7 @@ func (c *Client) ChatCompletion(
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
 	}
-	tier := resolveServiceTier(ctx, o.serviceTier)
+	tier := c.resolveServiceTier(ctx, o.serviceTier)
 	if tier != "" {
 		req.ServiceTier = openai.ServiceTier(tier)
 	}
@@ -435,6 +558,10 @@ func (c *Client) ChatCompletion(
 	if len(resp.Choices) > 0 {
 		finish = string(resp.Choices[0].FinishReason)
 	}
+	cachedTokens := 0
+	if resp.Usage.PromptTokensDetails != nil {
+		cachedTokens = resp.Usage.PromptTokensDetails.CachedTokens
+	}
 	c.trafficLog(logrus.Fields{
 		"purpose":           "chat",
 		"path":              "direct",
@@ -446,6 +573,7 @@ func (c *Client) ChatCompletion(
 		"json_schema":       o.jsonSchemaName,
 		"service_tier":      tier,
 		"prompt_tokens":     resp.Usage.PromptTokens,
+		"cached_tokens":     cachedTokens,
 		"completion_tokens": resp.Usage.CompletionTokens,
 		"finish_reason":     finish,
 		"duration_ms":       time.Since(start).Milliseconds(),
@@ -453,6 +581,7 @@ func (c *Client) ChatCompletion(
 
 	out := ChatResult{TotalDuration: time.Since(start)}
 	out.PromptTokens = resp.Usage.PromptTokens
+	out.CachedTokens = cachedTokens
 	out.CompletionTokens = resp.Usage.CompletionTokens
 	out.ThinkingContent = thinking
 

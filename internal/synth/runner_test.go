@@ -347,7 +347,7 @@ func TestRunner_EndToEnd_MorningCalm(t *testing.T) {
 // overlay end-to-end on the deep_work register. A weekday morning at 10:00
 // with no near meetings and ≥3h unbooked block must (a) detect deep_work,
 // (b) persist State="deep_work" on the briefing row, and (c) land tension
-// inside the [15,25] band declared in prompts/_voice.md. The test uses a
+// inside the [15,25] band declared in internal/synth/templates/_voice.md. The test uses a
 // scripted transcript so it runs offline alongside the rest of the synth
 // suite — golden-corpus byte-equality lives in eval/, not here.
 func TestRunner_EndToEnd_AdaptiveState(t *testing.T) {

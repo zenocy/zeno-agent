@@ -36,6 +36,7 @@ import (
 	"github.com/zenocy/zeno-v2/internal/injectsub"
 	"github.com/zenocy/zeno-v2/internal/jina"
 	"github.com/zenocy/zeno-v2/internal/llm"
+	_ "github.com/zenocy/zeno-v2/internal/llm/gemini" // registers the Gemini provider with llm.New
 	logp "github.com/zenocy/zeno-v2/internal/log"
 	"github.com/zenocy/zeno-v2/internal/metrics"
 	"github.com/zenocy/zeno-v2/internal/projection"
@@ -116,7 +117,7 @@ type bootContext struct {
 	clk          clock.Clock
 	settingsSvc  *settings.Service
 	settingsRepo *store.SettingsRepo
-	llm          *llm.Client
+	llm          llm.Provider
 	metrics      *metrics.Metrics // nil when cfg.Metrics.Enabled is false
 }
 
@@ -193,20 +194,44 @@ func boot(ba bootArgs) *bootContext {
 
 	clk := clock.NewReal(settingsSvc)
 
-	llmClient := llm.NewClient(llm.ClientConfig{
-		Endpoint:       cfg.LLM.Endpoint,
-		APIKey:         cfg.LLM.APIKey,
-		Model:          cfg.LLM.Model,
-		Timeout:        time.Duration(cfg.LLM.TimeoutSec) * time.Second,
-		JSONSchemaMode: cfg.LLM.JSONSchemaMode,
-		MaxTokens:      cfg.LLM.MaxTokens,
-		NoThink:        cfg.LLM.NoThink,
-		Retry: llm.RetryPolicy{
-			MaxAttempts:    cfg.LLM.RetryMaxAttempts,
-			InitialBackoff: time.Duration(cfg.LLM.RetryInitialBackoff) * time.Millisecond,
-			MaxBackoff:     time.Duration(cfg.LLM.RetryMaxBackoff) * time.Millisecond,
+	retryPolicy := llm.RetryPolicy{
+		MaxAttempts:    cfg.LLM.RetryMaxAttempts,
+		InitialBackoff: time.Duration(cfg.LLM.RetryInitialBackoff) * time.Millisecond,
+		MaxBackoff:     time.Duration(cfg.LLM.RetryMaxBackoff) * time.Millisecond,
+	}
+	llmClient, err := llm.New(llm.Config{
+		Provider: cfg.LLM.Provider,
+		OpenAI: llm.ClientConfig{
+			Endpoint:               cfg.LLM.OpenAI.Endpoint,
+			APIKey:                 cfg.LLM.OpenAI.APIKey,
+			Model:                  cfg.LLM.Model,
+			Timeout:                time.Duration(cfg.LLM.TimeoutSec) * time.Second,
+			JSONSchemaMode:         cfg.LLM.OpenAI.JSONSchemaMode,
+			MaxTokens:              cfg.LLM.MaxTokens,
+			NoThink:                cfg.LLM.NoThink,
+			StreamSchema:           cfg.LLM.OpenAI.StreamSchema,
+			ServiceTierBackground:  cfg.LLM.OpenAI.ServiceTierBackground,
+			ServiceTierInteractive: cfg.LLM.OpenAI.ServiceTierInteractive,
+			Retry:                  retryPolicy,
+		},
+		Gemini: llm.GeminiClientConfig{
+			APIKey:                   cfg.LLM.Gemini.APIKey,
+			Endpoint:                 cfg.LLM.Gemini.Endpoint,
+			Model:                    geminiModel(cfg.LLM),
+			Timeout:                  time.Duration(cfg.LLM.TimeoutSec) * time.Second,
+			Retry:                    retryPolicy,
+			MaxTokens:                cfg.LLM.MaxTokens,
+			EnableGoogleSearch:       cfg.LLM.Gemini.EnableGoogleSearch,
+			ThinkingLevelBackground:  cfg.LLM.Gemini.ThinkingLevelBackground,
+			ThinkingLevelInteractive: cfg.LLM.Gemini.ThinkingLevelInteractive,
+			IncludeThoughts:          cfg.LLM.Gemini.IncludeThoughts,
+			ServiceTierBackground:    cfg.LLM.Gemini.ServiceTierBackground,
+			ServiceTierInteractive:   cfg.LLM.Gemini.ServiceTierInteractive,
 		},
 	})
+	if err != nil {
+		logger.WithError(err).Fatal("llm: construct provider")
+	}
 	if mtx != nil {
 		llmClient.SetRetryInstrumentation(logger.WithField("c", "llm-retry"), mtx.IncRetry)
 	}
@@ -218,6 +243,16 @@ func boot(ba bootArgs) *bootContext {
 		settingsRepo: settingsRepo,
 		metrics:      mtx,
 	}
+}
+
+// geminiModel returns the Gemini-specific model when set in the
+// gemini: sub-block; falls back to the common llm.model otherwise so
+// single-provider deployments don't have to repeat themselves.
+func geminiModel(cfg config.LLMConfig) string {
+	if cfg.Gemini.Model != "" {
+		return cfg.Gemini.Model
+	}
+	return cfg.Model
 }
 
 // memoryFactLister adapts *store.MemoryRepo to embeddings.FactLister so the
@@ -378,13 +413,12 @@ func runServe(args []string) {
 
 	srvCfg := httpserver.ServerConfig{
 		Bind:                   bc.cfg.Server.Bind,
-		Port:                   bc.cfg.Server.Port,
-		ReadTimeout:            time.Duration(bc.cfg.Server.ReadTimeoutSec) * time.Second,
-		WriteTimeout:           time.Duration(bc.cfg.Server.WriteTimeoutSec) * time.Second,
-		ShutdownTimeout:        time.Duration(bc.cfg.Server.ShutdownSec) * time.Second,
-		LANToken:               bc.cfg.Server.LANToken,
-		HTTPSlowMs:             time.Duration(bc.cfg.Metrics.HTTPSlowMs) * time.Millisecond,
-		ServiceTierInteractive: bc.cfg.LLM.ServiceTierInteractive,
+		Port:            bc.cfg.Server.Port,
+		ReadTimeout:     time.Duration(bc.cfg.Server.ReadTimeoutSec) * time.Second,
+		WriteTimeout:    time.Duration(bc.cfg.Server.WriteTimeoutSec) * time.Second,
+		ShutdownTimeout: time.Duration(bc.cfg.Server.ShutdownSec) * time.Second,
+		LANToken:        bc.cfg.Server.LANToken,
+		HTTPSlowMs:      time.Duration(bc.cfg.Metrics.HTTPSlowMs) * time.Millisecond,
 	}
 	if bc.metrics != nil {
 		srvCfg.MetricsObserver = bc.metrics.ObserveHTTP
@@ -486,11 +520,11 @@ func runServe(args []string) {
 
 	embEndpoint := bc.cfg.Memory.EmbedderEndpoint
 	if embEndpoint == "" {
-		embEndpoint = bc.cfg.LLM.Endpoint
+		embEndpoint = bc.cfg.LLM.OpenAI.Endpoint
 	}
 	embAPIKey := bc.cfg.Memory.EmbedderAPIKey
 	if embAPIKey == "" {
-		embAPIKey = bc.cfg.LLM.APIKey
+		embAPIKey = bc.cfg.LLM.OpenAI.APIKey
 	}
 	embedder := embeddings.NewLMStudioEmbedder(
 		embEndpoint,
@@ -559,6 +593,7 @@ func runServe(args []string) {
 	briefingTimeout := time.Duration(bc.cfg.Synth.BriefingTimeoutSec) * time.Second
 	cronBudget := time.Duration(bc.cfg.Synth.CronBudgetSec) * time.Second
 	toolTimeout := time.Duration(bc.cfg.Synth.ToolTimeoutSec) * time.Second
+	finalCallBudget := time.Duration(bc.cfg.Synth.FinalCallBudgetSec) * time.Second
 
 	// V2.4: bus is constructed early so morning Runner, AskHandler, and
 	// the V2.3 inject orchestrator all share the same fan-out hub.
@@ -696,6 +731,7 @@ func runServe(args []string) {
 			Now:                     now,
 			Deadline:                reactiveDeadline,
 			ToolTimeout:             toolTimeout,
+			FinalCallBudget:         finalCallBudget,
 			MaxIterations:           bc.cfg.Synth.ReactiveMaxIterations,
 			Logger:                  bc.logger.WithField("c", "reactive"),
 			Concerns:                concernRepo,
@@ -765,6 +801,7 @@ func runServe(args []string) {
 			Now:                 now,
 			Deadline:            reactiveDeadline,
 			ToolTimeout:         toolTimeout,
+			FinalCallBudget:     finalCallBudget,
 			MaxIterations:       bc.cfg.Synth.ReactiveMaxIterations,
 			Logger:              bc.logger.WithField("c", "converse"),
 			Bus:                 bus,
@@ -1094,6 +1131,7 @@ func runServe(args []string) {
 		CardsTimeout:        cardsTimeout,
 		BriefingTimeout:     briefingTimeout,
 		ToolTimeout:         toolTimeout,
+		FinalCallBudget:     finalCallBudget,
 		CardsMaxIterations:  bc.cfg.Synth.CardsMaxIterations,
 		Concerns:            concernRepo,
 		ConcernObservations: concernObsRepo,
@@ -1115,7 +1153,6 @@ func runServe(args []string) {
 	scheduler.WithLocation(bc.clk.Location())
 	scheduler.WithEventLog(bc.store)
 	scheduler.WithMorningBudget(cronBudget)
-	scheduler.WithServiceTier(bc.cfg.LLM.ServiceTierBackground)
 	if bc.metrics != nil {
 		scheduler.WithCronObserver(bc.metrics.ObserveCron)
 		scheduler.WithSensorObserver(bc.metrics.ObserveSensor)
@@ -1140,28 +1177,29 @@ func runServe(args []string) {
 	// inject orchestrator share it.
 	injectCfg := sensor.DefaultInjectConfig()
 	scheduler.WithInject(buildInjectFn(injectFnDeps{
-		Reader:         bc.store,
-		EventLog:       bc.store,
-		ProjCfg:        projCfg,
-		Bus:            bus,
-		LLM:            bc.llm,
-		Memory:         memoryRepo,
-		MemoryRanker:   ranker,
-		Prompts:        prompts,
-		CardRepo:       cardRepo,
-		BriefingRepo:   briefingRepo,
-		ConcernRepo:    concernRepo,
-		ConcernTagRepo: concernObsRepo,
-		DetectorCfg:    injectCfg,
-		Logger:         bc.logger.WithField("c", "inject"),
-		Now:            time.Now,
-		LoopObserver:   loopObserver,
-		OnSynthRun:     onSynthRun,
-		JinaClient:     jinaToolClient,
-		JinaCache:      jinaStore,
-		SearchTTL:      jinaSearchTTL,
-		ReadTTL:        jinaReadTTL,
-		WiredIntents:   wiredIntents,
+		Reader:          bc.store,
+		EventLog:        bc.store,
+		ProjCfg:         projCfg,
+		Bus:             bus,
+		LLM:             bc.llm,
+		Memory:          memoryRepo,
+		MemoryRanker:    ranker,
+		Prompts:         prompts,
+		CardRepo:        cardRepo,
+		BriefingRepo:    briefingRepo,
+		ConcernRepo:     concernRepo,
+		ConcernTagRepo:  concernObsRepo,
+		DetectorCfg:     injectCfg,
+		Logger:          bc.logger.WithField("c", "inject"),
+		Now:             time.Now,
+		LoopObserver:    loopObserver,
+		OnSynthRun:      onSynthRun,
+		JinaClient:      jinaToolClient,
+		JinaCache:       jinaStore,
+		SearchTTL:       jinaSearchTTL,
+		ReadTTL:         jinaReadTTL,
+		WiredIntents:    wiredIntents,
+		FinalCallBudget: finalCallBudget,
 	}))
 
 	// V2.4: attach the bus so SyncAll wraps each per-sensor ctx with an
@@ -1311,6 +1349,7 @@ func runServe(args []string) {
 			Now:                     now,
 			Deadline:                reactiveDeadline,
 			ToolTimeout:             toolTimeout,
+			FinalCallBudget:         finalCallBudget,
 			MaxIterations:           bc.cfg.Synth.ReactiveMaxIterations,
 			Logger:                  bc.logger.WithField("c", "whatsapp-ask"),
 			Concerns:                concernRepo,

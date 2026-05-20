@@ -36,13 +36,6 @@ type ServerConfig struct {
 	// path for `auth.enabled: false`.
 	Auth         mw.AuthConfig
 	SessionStore sessions.Store
-
-	// ServiceTierInteractive stamps every inbound request's ctx with an
-	// OpenRouter service tier (see llm.ContextWithServiceTier) so any
-	// LLM call made on behalf of an interactive HTTP request picks that
-	// tier up automatically. Empty string = no stamping (LLM call falls
-	// through to upstream default). Wired from cfg.LLM.ServiceTierInteractive.
-	ServiceTierInteractive string
 }
 
 // Server wraps an Echo instance with lifecycle management.
@@ -64,9 +57,7 @@ func New(cfg ServerConfig, logger *logrus.Logger) *Server {
 	e.Use(mw.RequestID())
 	e.Use(mw.LoggingWithOptions(logger, mw.LoggingOptions{SlowMs: cfg.HTTPSlowMs}))
 	e.Use(mw.Recovery(logger))
-	if cfg.ServiceTierInteractive != "" {
-		e.Use(serviceTierMiddleware(cfg.ServiceTierInteractive))
-	}
+	e.Use(callProfileMiddleware())
 	e.Use(mw.Metrics(mw.MetricsOptions{
 		Observe: cfg.MetricsObserver,
 		SlowMs:  cfg.HTTPSlowMs,
@@ -106,20 +97,17 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.Echo.Shutdown(shutdownCtx)
 }
 
-// serviceTierMiddleware stamps every inbound HTTP request's ctx with
-// the configured interactive OpenRouter service tier. Any LLM call
-// downstream that doesn't override via WithServiceTier inherits this
-// tier — so e.g. a chat or Ask request can route to "priority" without
-// each handler having to plumb config through manually.
-//
-// The middleware is only mounted when cfg.ServiceTierInteractive is
-// non-empty; the empty case stays a true no-op (no ctx wrap, no field
-// sent upstream).
-func serviceTierMiddleware(tier string) echo.MiddlewareFunc {
+// callProfileMiddleware stamps every inbound HTTP request's ctx with
+// llm.CallProfileInteractive. Downstream LLM calls translate the
+// profile via per-provider config: OpenAI maps to service_tier, Gemini
+// maps to thinkingConfig.thinkingLevel. The profile itself is
+// provider-agnostic so the middleware is unconditional — backends that
+// don't expose interactive-vs-background knobs simply ignore it.
+func callProfileMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			req := c.Request()
-			c.SetRequest(req.WithContext(llm.ContextWithServiceTier(req.Context(), tier)))
+			c.SetRequest(req.WithContext(llm.ContextWithCallProfile(req.Context(), llm.CallProfileInteractive)))
 			return next(c)
 		}
 	}

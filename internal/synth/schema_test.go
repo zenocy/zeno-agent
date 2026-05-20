@@ -42,6 +42,30 @@ func TestGenerateSchema_EnumWithEmpty(t *testing.T) {
 	require.Contains(t, enum, "personal")
 }
 
+// LLM-facing schemas (response_schema in Gemini, json_schema in OpenAI) reject
+// enum arrays whose first element is the empty string:
+//
+//	Error 400, Message: ...response_schema.properties[cards].items.properties[kind].enum[0]: cannot be empty
+//
+// Our zen tags intentionally include "" to model optional-with-default-empty
+// fields (Card.Kind, Action.Intent, Attendee.Status, DaystripEvent.Kind), and
+// the strict post-parse validator still enforces the full enum. For the
+// LLM-facing relaxed map we drop the entire enum constraint when "" is one of
+// the values — keeping it would forbid the empty value the model is supposed
+// to emit; filtering "" out and keeping the rest would do the same.
+func TestRelaxSchemaForLLM_DropsEnumContainingEmpty(t *testing.T) {
+	type S struct {
+		Kind     string `json:"kind"               zen:"enum=|personal"`
+		Required string `json:"required"           zen:"required,enum=a|b|c"`
+	}
+	s := relaxSchemaForLLM(GenerateSchema(reflect.TypeOf(S{})))
+	props := s["properties"].(map[string]any)
+	kind := props["kind"].(map[string]any)
+	require.NotContains(t, kind, "enum", "enum containing \"\" must be stripped from LLM-facing schema")
+	required := props["required"].(map[string]any)
+	require.Contains(t, required, "enum", "enum without \"\" must be preserved")
+}
+
 // `zen:"-"` excludes a field from the generated JSON-Schema entirely,
 // in BOTH the strict (post-parse) and relaxed (LLM-facing) variants.
 // We use this for server-managed fields whose Go shape doesn't

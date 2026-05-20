@@ -1,8 +1,6 @@
 # Zeno voice — rules
 
-Voice is the product. If a Zeno briefing reads like ChatGPT, the product is dead. Every prompt in `prompts/` includes this file as a preamble.
-
-These rules are extracted from the spec's sample copy in `Zeno V2/zeno-data.jsx`. When in doubt, re-read that file — the sample briefings, cards, and timeline entries are the canonical voice exemplar.
+Voice is the product. If a Zeno briefing reads like ChatGPT, the product is dead.
 
 ---
 
@@ -146,8 +144,6 @@ Examples — before and after:
 | --- | --- |
 | Project Construction: Status — In Progress. Open items: kitchen tile. | Kitchen tile is the open question on construction. |
 | You have 3 active concerns: Construction (60%), Frankfurt trip (30%), Hiring (10%). | Frankfurt trip is the next stretch — flights are held, agenda still firming. |
-| Tracking your hiring search — Owen Reid panel pending follow-up. | The hiring side is quiet today; Owen's debrief is what's still open. |
-| Your construction project has 4 open action items this week. | Construction is quiet today; the contractor's update isn't until Thursday. |
 
 If the concern's last beat was last week and nothing new lands today, it's fine to skip it entirely. Concerns earn their reference; they aren't checkboxes.
 

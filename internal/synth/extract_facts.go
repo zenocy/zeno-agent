@@ -75,7 +75,7 @@ remember: partner: Sam, vegetarian`
 // On any failure (timeout, network, validation) returns nil — extraction is
 // best-effort decoration on top of the answer card. The caller never fails a
 // response because extraction failed.
-func ExtractFacts(ctx context.Context, client *llm.Client, query string, timeout time.Duration, logger *logrus.Entry) []llm.MemoryCandidate {
+func ExtractFacts(ctx context.Context, client llm.Provider, query string, timeout time.Duration, logger *logrus.Entry) []llm.MemoryCandidate {
 	if client == nil || strings.TrimSpace(query) == "" {
 		return nil
 	}

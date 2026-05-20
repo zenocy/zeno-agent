@@ -30,6 +30,7 @@ import (
 	"github.com/zenocy/zeno-v2/eval"
 	"github.com/zenocy/zeno-v2/internal/config"
 	"github.com/zenocy/zeno-v2/internal/llm"
+	_ "github.com/zenocy/zeno-v2/internal/llm/gemini" // registers the Gemini provider with llm.New
 	"github.com/zenocy/zeno-v2/internal/synth"
 )
 
@@ -96,15 +97,47 @@ func main() {
 		fail("load prompts: %v", err)
 	}
 
-	client := llm.NewClient(llm.ClientConfig{
-		Endpoint:       *endpoint,
-		APIKey:         *apiKey,
-		Model:          *model,
-		Timeout:        *brTimeout + 30*time.Second, // generous HTTP cap; loop deadlines do real work
-		JSONSchemaMode: *schemaMode,
-		MaxTokens:      cfgLLMMaxTokens(cfg),
-		NoThink:        *noThink,
-	})
+	provider := cfgLLMProvider(cfg)
+	llmCfg := llm.Config{
+		Provider: provider,
+		OpenAI: llm.ClientConfig{
+			Endpoint:       *endpoint,
+			APIKey:         *apiKey,
+			Model:          *model,
+			Timeout:        *brTimeout + 30*time.Second, // generous HTTP cap; loop deadlines do real work
+			JSONSchemaMode: *schemaMode,
+			MaxTokens:      cfgLLMMaxTokens(cfg),
+			NoThink:        *noThink,
+		},
+	}
+	if cfg != nil {
+		// Gemini model: CLI -model flag wins when explicitly set;
+		// otherwise the gemini.model sub-block wins; otherwise the
+		// common llm.model. Keeps `make eval-gemini -- -model=…`
+		// working without forcing the gemini block to repeat the
+		// common name.
+		geminiModelName := *model
+		if !userSet["model"] && cfg.LLM.Gemini.Model != "" {
+			geminiModelName = cfg.LLM.Gemini.Model
+		}
+		llmCfg.Gemini = llm.GeminiClientConfig{
+			APIKey:                   cfg.LLM.Gemini.APIKey,
+			Endpoint:                 cfg.LLM.Gemini.Endpoint,
+			Model:                    geminiModelName,
+			Timeout:                  *brTimeout + 30*time.Second,
+			MaxTokens:                cfgLLMMaxTokens(cfg),
+			EnableGoogleSearch:       cfg.LLM.Gemini.EnableGoogleSearch,
+			ThinkingLevelBackground:  cfg.LLM.Gemini.ThinkingLevelBackground,
+			ThinkingLevelInteractive: cfg.LLM.Gemini.ThinkingLevelInteractive,
+			IncludeThoughts:          cfg.LLM.Gemini.IncludeThoughts,
+			ServiceTierBackground:    cfg.LLM.Gemini.ServiceTierBackground,
+			ServiceTierInteractive:   cfg.LLM.Gemini.ServiceTierInteractive,
+		}
+	}
+	client, llmErr := llm.New(llmCfg)
+	if llmErr != nil {
+		fail("construct llm: %v", llmErr)
+	}
 
 	fixtures, err := collectFixtures(*fixturesPath)
 	if err != nil {
@@ -346,11 +379,14 @@ func applyLLMDefault(target *string, name string, userSet map[string]bool, fromC
 
 // Tiny accessors so the call sites read like English. Each tolerates a
 // nil config (the load may have failed) and returns a zero string.
+// Reads from the OpenAI sub-block (canonical after LLMConfig.Normalize)
+// so post-multi-provider configs work transparently; pre-multi-provider
+// flat-field configs already get folded into OpenAI by Normalize.
 func cfgLLMEndpoint(c *config.Config) string {
 	if c == nil {
 		return ""
 	}
-	return c.LLM.Endpoint
+	return c.LLM.OpenAI.Endpoint
 }
 
 func cfgLLMModel(c *config.Config) string {
@@ -364,14 +400,14 @@ func cfgLLMAPIKey(c *config.Config) string {
 	if c == nil {
 		return ""
 	}
-	return c.LLM.APIKey
+	return c.LLM.OpenAI.APIKey
 }
 
 func cfgLLMJSONSchemaMode(c *config.Config) string {
 	if c == nil {
 		return ""
 	}
-	return c.LLM.JSONSchemaMode
+	return c.LLM.OpenAI.JSONSchemaMode
 }
 
 func cfgLLMMaxTokens(c *config.Config) int {
@@ -379,4 +415,13 @@ func cfgLLMMaxTokens(c *config.Config) int {
 		return 0
 	}
 	return c.LLM.MaxTokens
+}
+
+// cfgLLMProvider reports the configured provider name (post-Normalize).
+// Falls back to "openai" when the config didn't load.
+func cfgLLMProvider(c *config.Config) string {
+	if c == nil {
+		return "openai"
+	}
+	return c.LLM.Provider
 }

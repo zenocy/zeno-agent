@@ -19,7 +19,7 @@ var Version = "dev"
 // HealthHandler answers GET /api/health.
 type HealthHandler struct {
 	DB        *gorm.DB
-	LLM       *llm.Client
+	LLM       llm.Provider
 	Reader    zlog.Reader // optional; used to surface last_synth_at / last_sync_at
 	StartedAt time.Time
 }
