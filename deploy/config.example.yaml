@@ -89,6 +89,19 @@ llm:
   # (cards, reactive) keep think enabled regardless.
   no_think: false
 
+  # OpenRouter service tiers (https://openrouter.ai/docs/guides/features/service-tiers).
+  # Adds a `service_tier` field on outbound chat completions so background
+  # work can run on the cheaper/slower "flex" backend while interactive
+  # paths stay on the default. Allowed values: "" (omit field; upstream
+  # picks), "default", "flex", "priority". Empty (default) preserves
+  # pre-V2.x behavior — no field is sent.
+  #
+  # Ignored when pointing at a non-OpenRouter endpoint (local Ollama / LM
+  # Studio ignore the field), though some providers may 400 on unknown
+  # fields — leave empty when running against a local server.
+  service_tier_background: ""    # set to "flex" on OpenRouter for cron + manual *Now triggers (morning synth, recognition, inject)
+  service_tier_interactive: ""   # set to "priority" if you want chat/Ask responses to skip the default queue
+
 # Per-stage timeout budgets for the morning synthesizer run. The cron tick
 # enforces cron_budget_sec as a hard ceiling; the runner subdivides it
 # between cards and briefing. On briefing failure, cards are persisted with

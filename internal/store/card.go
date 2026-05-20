@@ -57,6 +57,12 @@ type Card struct {
 	// cards, and is irrelevant for non-ask sources (which the filter
 	// admits unconditionally).
 	ExpiresAt *time.Time `gorm:"index" json:"expires_at,omitempty"`
+
+	// Body holds multi-paragraph elaboration produced by the reactive
+	// Ask flow for in-app text-chat queries. Empty on WhatsApp-origin
+	// cards and on morning cards. AutoMigrate adds the column on next
+	// boot; existing rows back-fill with the default empty string.
+	Body string `gorm:"type:text;default:''" json:"body,omitempty"`
 }
 
 // CardRepo persists and reads Card rows. The Table field controls which

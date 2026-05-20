@@ -339,6 +339,55 @@ func TestAskHandler_PersistsCard(t *testing.T) {
 	require.Equal(t, "ask", got.Origin, "Ask cards carry Origin=ask so ListByDate's source filter keeps them off the morning rail")
 }
 
+// TestAskHandler_PersistsBody pins the in-app text-chat elaboration
+// path: when synth.Ask returns a Card with multi-paragraph Body, the
+// handler must surface it in the HTTP JSON response AND persist it on
+// the store.Card row so the SSE re-broadcast and any /api/cards/:id
+// follow-up returns the body unchanged.
+func TestAskHandler_PersistsBody(t *testing.T) {
+	db := openHandlerTestDB(t)
+	cards := &store.CardRepo{DB: db}
+	traces := &store.TraceRepo{DB: db}
+
+	body := "First paragraph with concrete detail.\n\nSecond paragraph adds context.\n\nThird beat ends decisively."
+	stubCard := synth.Card{
+		ID: "iran-a2db", Date: "2026-04-25", Source: "ask",
+		SrcLabel: "Generated", Rel: "med",
+		Title: "A fragile pause in the Iran conflict",
+		Sub:   "Vance keeps military action locked and loaded if talks stall.",
+		Body:  body,
+		Meta:  []string{}, Actions: []synth.Action{{Label: "Dismiss"}},
+	}
+
+	e := echo.New()
+	(&AskHandler{
+		AskFn: func(_ context.Context, _ string) (synth.Card, llm.Trace, []llm.MemoryCandidate, error) {
+			return stubCard, llm.Trace{Stopped: "ok"}, nil, nil
+		},
+		Cards:    cards,
+		Traces:   traces,
+		EventLog: logtest.NewMemReader(),
+		TZ:       func() *time.Location { return time.UTC },
+		Now:      func() time.Time { return time.Date(2026, 4, 25, 8, 0, 0, 0, time.UTC) },
+		Log:      quietHandlerEntry(),
+	}).Register(e)
+
+	rr := postAsk(e, "what's the latest in the war of iran?")
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	// HTTP response carries body.
+	var resp askResponse
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	require.Equal(t, body, resp.Card.Body, "HTTP response Card must include the in-app body")
+
+	// Persisted store.Card row carries body — catches a missed mapping
+	// in storeCard (the synth.Card → store.Card translation).
+	got, err := cards.GetByID(context.Background(), "iran-a2db")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, body, got.Body, "persisted store.Card must carry the body so SSE re-broadcast + follow-ups stay consistent")
+}
+
 // TestAskHandler_PersistFailureDoesNotFailResponse covers the best-effort
 // contract: a CardRepo persist error is logged but the HTTP response still
 // succeeds — the card already streamed to the UI over SSE + HTTP, and the

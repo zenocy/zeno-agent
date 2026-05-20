@@ -330,6 +330,7 @@ func storeCard(c synth.Card, runID, date string) store.Card {
 		Origin:   "ask",
 		Title:    c.Title,
 		Sub:      c.Sub,
+		Body:     c.Body,
 		Meta:     datatypes.JSON(metaJSON),
 		Actions:  datatypes.JSON(actionsJSON),
 		Expand:   expandJSON,

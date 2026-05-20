@@ -95,6 +95,11 @@ export interface Card {
   kind?: string;
   title: string;
   sub: string;
+  // Multi-paragraph elaboration populated by the reactive Ask flow only
+  // when the request came from the in-app text surface. Absent on
+  // morning cards and WhatsApp-origin cards. Paragraphs are separated
+  // by blank lines (`\n\n`).
+  body?: string;
   meta: string[];
   actions: CardAction[];
   expand?: Record<string, string>;

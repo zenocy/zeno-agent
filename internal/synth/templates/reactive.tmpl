@@ -113,6 +113,7 @@ Respond with ONLY this JSON — no prose outside it, no code fences:
   "rel": "med",
   "title": "Short, sharp Zeno-voiced title",
   "sub": "One sentence (~400 characters or fewer) of literary prose that answers the question.",
+  "body": "Optional. Multi-paragraph elaboration — populated only on the in-app text surface (see surface-specific rules below).",
   "meta": [],
   "actions": [{"label": "Dismiss"}]
 }
@@ -125,6 +126,19 @@ Constraints:
 - Title and sub follow the voice rules above — no bullet lists, no ChatGPT hedging.
 - Aim for `title` ≤120 chars and `sub` ≤400 chars. These are budgets, not hard caps — but keep prose tight; cut secondary detail rather than spilling over.
 - If you cannot find relevant data with the tools, still produce a card; say so briefly in `sub`.
+
+{{- if not .Conversation }}
+
+# In-app body
+
+This question came from the in-app text surface, not WhatsApp. In addition to the voice-styled `title` and `sub` (which stay tight — they are the headline a reader skims), populate `body` with the *elaborated* answer:
+
+- 2 to 4 short paragraphs of literary prose. Each paragraph 1–3 sentences. Separate paragraphs with a blank line. Plain text with markdown emphasis only — no bullet lists, no headers, no "Background:" labels.
+- Follow the same voice rules as `title` and `sub`: concrete nouns, italicized pivot per beat, no hedging, no "let me know", end decisively.
+- Lead with what changed *most recently*. Then the context that frames it. Then what's coming next or where it points. Cut anything that doesn't earn its line.
+- Do not repeat the `sub` in the first body paragraph — assume the reader already saw it.
+- If the tools didn't return enough material to elaborate, omit `body` entirely rather than padding. Sub alone is fine when the answer truly is one sentence.
+{{- end }}
 
 {{- with .Conversation }}
 
@@ -144,7 +158,7 @@ In addition to the normal Card JSON, populate the `speech` field with the reply 
 - Read it aloud — it should sound like a text message, not a memo.
 - If you don't have the data, say so in one sentence and stop.
 
-Title and sub still follow the standard rules above (the in-app trace renders them); `speech` is what actually gets sent to WhatsApp.
+Title and sub still follow the standard rules above (the in-app trace renders them); `speech` is what actually gets sent to WhatsApp. Leave `body` empty — the multi-paragraph elaboration is only for the in-app text surface.
 {{- end }}
 {{- if .WiredIntents }}
 

@@ -164,3 +164,143 @@ func TestAsk_OversizedSubPassesThrough(t *testing.T) {
 	require.Equal(t, oversizeRunes, len([]rune(card.Sub)),
 		"sub must pass through at full length; rejecting an over-budget sub throws away a usable answer")
 }
+
+// stubLLMServer returns a test server that always replies with the
+// given content string wrapped in a chat-completion envelope. Used to
+// pin Ask's behavior on specific model outputs.
+func stubLLMServer(t *testing.T, content string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"id": "t", "object": "chat.completion", "model": "qwen3-test",
+			"choices": []map[string]any{{
+				"index":         0,
+				"message":       map[string]any{"role": "assistant", "content": content},
+				"finish_reason": "stop",
+			}},
+			"usage": map[string]int{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+}
+
+// TestAsk_PopulatesBody_InAppSurface pins the in-app text-chat behavior:
+// when Conversation is nil (the in-app surface) the reactive prompt
+// invites the model to populate `body` with multi-paragraph elaboration,
+// and Ask must surface it on the returned Card. Guards against a future
+// schema change that silently drops the field.
+func TestAsk_PopulatesBody_InAppSurface(t *testing.T) {
+	body := "First paragraph with concrete *detail*.\n\nSecond paragraph adds context.\n\nThird beat ends decisively."
+	cardJSON, err := json.Marshal(Card{
+		ID:       "generated-iran",
+		Date:     "2026-05-06",
+		Source:   "ask",
+		SrcLabel: "Generated",
+		Rel:      "med",
+		Title:    "A fragile pause in the Iran conflict",
+		Sub:      "Vance keeps military action *locked and loaded* if talks stall.",
+		Body:     body,
+		Meta:     []string{},
+		Actions:  []Action{{Label: "Dismiss"}},
+	})
+	require.NoError(t, err)
+
+	srv := stubLLMServer(t, string(cardJSON))
+	defer srv.Close()
+
+	dbPath := t.TempDir() + "/zeno.db"
+	_, lstore, err := zlog.Open(dbPath)
+	require.NoError(t, err)
+
+	prompts, err := LoadPrompts("")
+	require.NoError(t, err)
+
+	logger := logrus.New()
+	logger.Out = io.Discard
+
+	llmClient := llm.NewClient(llm.ClientConfig{
+		Endpoint: srv.URL,
+		Model:    "test",
+		Timeout:  10 * time.Second,
+	})
+
+	deps := ReactiveDeps{
+		LLM:      llmClient,
+		Reader:   lstore,
+		ProjCfg:  projection.Config{TZ: time.UTC},
+		Prompts:  prompts,
+		Date:     "2026-05-06",
+		Now:      time.Now(),
+		Deadline: 5 * time.Second,
+		Logger:   logger.WithField("c", "reactive-test"),
+		// Conversation == nil → in-app surface.
+	}
+
+	card, _, _, err := Ask(context.Background(), deps, "what's the latest in the war of iran?")
+	require.NoError(t, err)
+	require.Equal(t, body, card.Body, "in-app reactive Ask must surface multi-paragraph body verbatim")
+	require.Empty(t, card.Speech, "in-app surface must not populate the WhatsApp speech field")
+}
+
+// TestAsk_OmitsBody_WhatsAppSurface pins the WhatsApp behavior: when
+// Conversation is non-nil the prompt's WhatsApp register suppresses
+// `body` (it's for the in-app surface only) and asks for `speech`
+// instead. Even if a hypothetical model leaks body, this test
+// documents the contract — the reactive flow must accept a
+// body-less card on WhatsApp without crashing or repairing.
+func TestAsk_OmitsBody_WhatsAppSurface(t *testing.T) {
+	cardJSON, err := json.Marshal(Card{
+		ID:       "generated-wa",
+		Date:     "2026-05-06",
+		Source:   "ask",
+		SrcLabel: "Generated",
+		Rel:      "med",
+		Title:    "Quick read on the talks",
+		Sub:      "Vance keeps military action locked and loaded if talks stall.",
+		Speech:   "Trump paused the strike; Vance says talks first, force second.",
+		Meta:     []string{},
+		Actions:  []Action{{Label: "Dismiss"}},
+		// Body intentionally absent — WhatsApp register suppresses it.
+	})
+	require.NoError(t, err)
+
+	srv := stubLLMServer(t, string(cardJSON))
+	defer srv.Close()
+
+	dbPath := t.TempDir() + "/zeno.db"
+	_, lstore, err := zlog.Open(dbPath)
+	require.NoError(t, err)
+
+	prompts, err := LoadPrompts("")
+	require.NoError(t, err)
+
+	logger := logrus.New()
+	logger.Out = io.Discard
+
+	llmClient := llm.NewClient(llm.ClientConfig{
+		Endpoint: srv.URL,
+		Model:    "test",
+		Timeout:  10 * time.Second,
+	})
+
+	deps := ReactiveDeps{
+		LLM:      llmClient,
+		Reader:   lstore,
+		ProjCfg:  projection.Config{TZ: time.UTC},
+		Prompts:  prompts,
+		Date:     "2026-05-06",
+		Now:      time.Now(),
+		Deadline: 5 * time.Second,
+		Logger:   logger.WithField("c", "reactive-test"),
+		Conversation: &ConversationContext{
+			IsDM:       true,
+			SenderName: "Andreas",
+		},
+	}
+
+	card, _, _, err := Ask(context.Background(), deps, "what's the latest in the war of iran?")
+	require.NoError(t, err)
+	require.Empty(t, card.Body, "WhatsApp surface must leave body empty — only the in-app surface populates it")
+	require.NotEmpty(t, card.Speech, "WhatsApp surface must still populate speech for verbatim send")
+}

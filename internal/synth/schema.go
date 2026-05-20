@@ -77,6 +77,16 @@ type Card struct {
 	// it as optional everywhere so the eval corpus and morning cards
 	// continue to validate without changes.
 	Speech string `json:"speech,omitempty"`
+
+	// Body is the in-app text-chat elaboration: 2–4 short paragraphs of
+	// literary prose populated by the reactive Ask flow only when the
+	// request originates from the in-app surface (Conversation == nil).
+	// Title and Sub stay voice-styled (skim headline); Body carries the
+	// detail a reader who typed into the chat wants without a second
+	// turn. Empty on WhatsApp-origin cards and on morning cards. No
+	// zen constraint — soft length lives in the prompt; the schema
+	// accepts any string so historical fixtures keep validating.
+	Body string `json:"body,omitempty"`
 }
 
 // CardSet is the LLM's required output shape for the cards loop.

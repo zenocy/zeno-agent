@@ -244,6 +244,74 @@ func TestSubCardSchema_DocumentKind(t *testing.T) {
 	}
 }
 
+// TestCardSchema_BodyOptional verifies the reactive Ask body field is
+// schema-optional: cards without it validate (morning fixtures, WhatsApp
+// replies), cards with multi-paragraph prose validate (in-app text
+// chat), and a non-string value still fails the type check.
+func TestCardSchema_BodyOptional(t *testing.T) {
+	// Body absent — morning + WhatsApp shape. Must validate.
+	absent := `{
+	  "id": "saru-1234",
+	  "date": "2026-04-25",
+	  "src": "mail",
+	  "src_label": "Email · Acuity",
+	  "rel": "high",
+	  "title": "Saru Patel · re: redline",
+	  "sub": "Walked the redline with Lin.",
+	  "meta": ["06:14"],
+	  "actions": [{"label":"Draft","primary":true}]
+	}`
+	require.NoError(t, ValidateJSON(CardSchema(), []byte(absent)))
+
+	// Body populated with multi-paragraph prose — in-app text-chat shape.
+	populated := `{
+	  "id": "ask-iran",
+	  "date": "2026-04-25",
+	  "src": "ask",
+	  "src_label": "Generated",
+	  "rel": "med",
+	  "title": "A fragile pause in the Iran conflict",
+	  "sub": "Vance keeps military action *locked and loaded* if talks stall.",
+	  "body": "Paragraph one with concrete detail.\n\nParagraph two adding *context*.\n\nThird beat ending decisively.",
+	  "meta": [],
+	  "actions": [{"label":"Dismiss"}]
+	}`
+	require.NoError(t, ValidateJSON(CardSchema(), []byte(populated)))
+
+	// Body non-string — must fail (type mismatch).
+	badType := `{
+	  "id": "ask-bad",
+	  "date": "2026-04-25",
+	  "src": "ask",
+	  "src_label": "Generated",
+	  "rel": "med",
+	  "title": "Title here",
+	  "sub": "Sub long enough to clear the floor.",
+	  "body": 42,
+	  "meta": [],
+	  "actions": [{"label":"Dismiss"}]
+	}`
+	require.Error(t, ValidateJSON(CardSchema(), []byte(badType)))
+}
+
+// TestCardSchemaMap_BodyHasNoLengthConstraints verifies the LLM-facing
+// schema lists `body` as an unconstrained optional string so Gemini's
+// decoder doesn't refuse longer elaborations. The strict validator
+// already enforces no minLength/maxLength (covered above); this guards
+// the relaxed shape sent to the model.
+func TestCardSchemaMap_BodyHasNoLengthConstraints(t *testing.T) {
+	s := CardSchemaMap()
+	props, ok := s["properties"].(map[string]any)
+	require.True(t, ok, "card schema must expose properties")
+	body, ok := props["body"].(map[string]any)
+	require.True(t, ok, "body must appear in the card schema")
+	require.Equal(t, "string", body["type"])
+	require.NotContains(t, body, "minLength", "body must not be length-floored — soft length lives in the prompt")
+	require.NotContains(t, body, "maxLength", "body must not be length-capped — multi-paragraph elaboration is intentional")
+	required, _ := s["required"].([]string)
+	require.NotContains(t, required, "body", "body must be optional — empty on morning + WhatsApp cards")
+}
+
 func TestSchema_Marshalable(t *testing.T) {
 	// Both schemas must be JSON-marshalable so they can be sent as the
 	// OpenAI tool's function.parameters.

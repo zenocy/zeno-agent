@@ -236,6 +236,34 @@ func TestCardRepo_OriginColumn(t *testing.T) {
 	require.Equal(t, "inject", origins["inject-1"])
 }
 
+// TestCardRepo_BodyColumn round-trips the Body column for the reactive
+// Ask in-app surface. A populated multi-paragraph string must come back
+// byte-equal; the zero value must come back as the empty string (no
+// default-mangling). The migration adds the column on Migrate(),
+// verified indirectly by the successful upsert on a fresh test DB.
+func TestCardRepo_BodyColumn(t *testing.T) {
+	db := openTestDB(t)
+	repo := &CardRepo{DB: db}
+	ctx := context.Background()
+
+	body := "Paragraph one with concrete *detail*.\n\nParagraph two adding context.\n\nThird beat ending decisively."
+	now := time.Now()
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		{ID: "ask-body", Date: "2026-04-25", Source: "ask", Rel: "med", Title: "with body", Sub: "sub long enough", Body: body, Origin: "ask", CreatedAt: now},
+		{ID: "morning-nobody", Date: "2026-04-25", Source: "mail", Rel: "high", Title: "no body", Sub: "sub long enough", CreatedAt: now},
+	}))
+
+	got, err := repo.GetByID(ctx, "ask-body")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, body, got.Body, "Body must round-trip byte-equal")
+
+	empty, err := repo.GetByID(ctx, "morning-nobody")
+	require.NoError(t, err)
+	require.NotNil(t, empty)
+	require.Equal(t, "", empty.Body, "zero-value Body must stay empty — no default-mangling")
+}
+
 // V2.3.0 P3: morning + inject briefings must coexist for the same date
 // under the composite (date, kind) PK. ByDate returns morning by default;
 // ByDateKind reaches the inject row; ListByDate returns both.

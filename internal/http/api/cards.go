@@ -42,6 +42,7 @@ type cardDTO struct {
 	Kind     string            `json:"kind,omitempty"`
 	Title    string            `json:"title"`
 	Sub      string            `json:"sub"`
+	Body     string            `json:"body,omitempty"`
 	Meta     []string          `json:"meta"`
 	Actions  []cardActionDTO   `json:"actions"`
 	Expand   map[string]string `json:"expand,omitempty"`
@@ -164,6 +165,7 @@ func toCardDTO(r store.Card) cardDTO {
 		Kind:     r.Kind,
 		Title:    r.Title,
 		Sub:      r.Sub,
+		Body:     r.Body,
 		TraceID:  r.TraceID,
 		Pinned:   r.Pinned,
 	}
