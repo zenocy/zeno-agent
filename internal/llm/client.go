@@ -257,6 +257,7 @@ type chatOpts struct {
 	jsonMode       bool
 	jsonSchemaName string
 	jsonSchemaRaw  []byte
+	serviceTier    string
 }
 
 // WithTemperature sets the sampling temperature for this call.
@@ -267,6 +268,17 @@ func WithTemperature(t float32) ChatOption {
 // WithMaxTokens caps generated tokens (0 = upstream default).
 func WithMaxTokens(n int) ChatOption {
 	return func(o *chatOpts) { o.maxTokens = n }
+}
+
+// WithServiceTier sets the OpenRouter service tier for this call,
+// overriding any ctx-borne tier (see ContextWithServiceTier). Allowed
+// values: "default" (upstream picks), "flex" (cheaper / higher latency),
+// "priority" (faster / higher cost). Empty string is a no-op so the
+// per-call hook follows the same omit-when-unset semantics as the ctx
+// helper. Provider support varies; OpenRouter rejects unknown tiers
+// with a 400 rather than silently dropping the field.
+func WithServiceTier(tier string) ChatOption {
+	return func(o *chatOpts) { o.serviceTier = tier }
 }
 
 // WithJSONMode requests `response_format: {"type":"json_object"}`. Only set
@@ -386,6 +398,10 @@ func (c *Client) ChatCompletion(
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
 	}
+	tier := resolveServiceTier(ctx, o.serviceTier)
+	if tier != "" {
+		req.ServiceTier = openai.ServiceTier(tier)
+	}
 
 	start := time.Now()
 	var thinking string
@@ -401,16 +417,17 @@ func (c *Client) ChatCompletion(
 	})
 	if err != nil {
 		c.trafficLog(logrus.Fields{
-			"purpose":     "chat",
-			"path":        "direct",
-			"model":       c.model,
-			"messages":    len(messages),
-			"tools":       len(tools),
-			"max_tokens":  req.MaxTokens,
-			"json_mode":   o.jsonMode,
-			"json_schema": o.jsonSchemaName,
-			"duration_ms": time.Since(start).Milliseconds(),
-			"error":       err.Error(),
+			"purpose":      "chat",
+			"path":         "direct",
+			"model":        c.model,
+			"messages":     len(messages),
+			"tools":        len(tools),
+			"max_tokens":   req.MaxTokens,
+			"json_mode":    o.jsonMode,
+			"json_schema":  o.jsonSchemaName,
+			"service_tier": tier,
+			"duration_ms":  time.Since(start).Milliseconds(),
+			"error":        err.Error(),
 		}, "llm: chat completion failed")
 		return ChatResult{}, err
 	}
@@ -427,6 +444,7 @@ func (c *Client) ChatCompletion(
 		"max_tokens":        req.MaxTokens,
 		"json_mode":         o.jsonMode,
 		"json_schema":       o.jsonSchemaName,
+		"service_tier":      tier,
 		"prompt_tokens":     resp.Usage.PromptTokens,
 		"completion_tokens": resp.Usage.CompletionTokens,
 		"finish_reason":     finish,

@@ -377,13 +377,14 @@ func runServe(args []string) {
 	}
 
 	srvCfg := httpserver.ServerConfig{
-		Bind:            bc.cfg.Server.Bind,
-		Port:            bc.cfg.Server.Port,
-		ReadTimeout:     time.Duration(bc.cfg.Server.ReadTimeoutSec) * time.Second,
-		WriteTimeout:    time.Duration(bc.cfg.Server.WriteTimeoutSec) * time.Second,
-		ShutdownTimeout: time.Duration(bc.cfg.Server.ShutdownSec) * time.Second,
-		LANToken:        bc.cfg.Server.LANToken,
-		HTTPSlowMs:      time.Duration(bc.cfg.Metrics.HTTPSlowMs) * time.Millisecond,
+		Bind:                   bc.cfg.Server.Bind,
+		Port:                   bc.cfg.Server.Port,
+		ReadTimeout:            time.Duration(bc.cfg.Server.ReadTimeoutSec) * time.Second,
+		WriteTimeout:           time.Duration(bc.cfg.Server.WriteTimeoutSec) * time.Second,
+		ShutdownTimeout:        time.Duration(bc.cfg.Server.ShutdownSec) * time.Second,
+		LANToken:               bc.cfg.Server.LANToken,
+		HTTPSlowMs:             time.Duration(bc.cfg.Metrics.HTTPSlowMs) * time.Millisecond,
+		ServiceTierInteractive: bc.cfg.LLM.ServiceTierInteractive,
 	}
 	if bc.metrics != nil {
 		srvCfg.MetricsObserver = bc.metrics.ObserveHTTP
@@ -1114,6 +1115,7 @@ func runServe(args []string) {
 	scheduler.WithLocation(bc.clk.Location())
 	scheduler.WithEventLog(bc.store)
 	scheduler.WithMorningBudget(cronBudget)
+	scheduler.WithServiceTier(bc.cfg.LLM.ServiceTierBackground)
 	if bc.metrics != nil {
 		scheduler.WithCronObserver(bc.metrics.ObserveCron)
 		scheduler.WithSensorObserver(bc.metrics.ObserveSensor)

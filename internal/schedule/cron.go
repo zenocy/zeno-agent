@@ -19,6 +19,7 @@ import (
 
 	"github.com/zenocy/zeno-v2/internal/config"
 	"github.com/zenocy/zeno-v2/internal/eventbus"
+	"github.com/zenocy/zeno-v2/internal/llm"
 	zlog "github.com/zenocy/zeno-v2/internal/log"
 	"github.com/zenocy/zeno-v2/internal/sensor"
 )
@@ -137,6 +138,14 @@ type Scheduler struct {
 	// V2.5.0: daily concern recognition.
 	recognitionFn     RecognitionFunc
 	recognitionBudget time.Duration // 0 → 60s
+
+	// serviceTier is attached to every background-fired ctx (cron tick
+	// or manual *Now trigger) via llm.ContextWithServiceTier so the
+	// LLM client can route those calls to a non-default OpenRouter
+	// service tier (typically "flex" for cost savings on work the
+	// operator isn't actively watching). Empty string = no tier
+	// override; the LLM call omits the field. Wired via WithServiceTier.
+	serviceTier string
 }
 
 // New constructs a Scheduler. Returns an error if any cron expression
@@ -456,6 +465,7 @@ func (s *Scheduler) RunMorningNow(ctx context.Context) error {
 		return ErrMorningInFlight
 	}
 	defer s.morningRunning.Store(false)
+	ctx = llm.ContextWithServiceTier(ctx, s.serviceTier)
 	err := s.morningSynth(ctx)
 	// V2.5 post-launch: chain recognition off the manual trigger so a UI
 	// force-refresh re-runs concern recognition with fresh observations.
@@ -499,6 +509,7 @@ func (s *Scheduler) runInjectWithSignal(ctx context.Context, signal any) error {
 		return ErrInjectInFlight
 	}
 	defer s.injectRunning.Store(false)
+	ctx = llm.ContextWithServiceTier(ctx, s.serviceTier)
 	return s.injectFn(ctx, signal)
 }
 
@@ -526,6 +537,7 @@ func (s *Scheduler) runMorningSynth() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
+	ctx = llm.ContextWithServiceTier(ctx, s.serviceTier)
 	err := s.morningSynth(ctx)
 	if err != nil && s.log != nil {
 		s.log.WithError(err).Error("morning_synth failed")
@@ -582,6 +594,17 @@ func (s *Scheduler) WithRecognition(fn RecognitionFunc) *Scheduler {
 	return s
 }
 
+// WithServiceTier sets the OpenRouter service tier the scheduler will
+// attach to every background ctx it creates (morning synth, recognition,
+// inject, plus the manual *Now variants). Empty string is a no-op so
+// callers can pass a config value verbatim. Allowed values are validated
+// upstream in config.validateServiceTier; passing an unknown string here
+// silently goes through and OpenRouter will return a 400 at request time.
+func (s *Scheduler) WithServiceTier(tier string) *Scheduler {
+	s.serviceTier = tier
+	return s
+}
+
 // WithRecognitionBudget sets the wall-clock ceiling for one recognition
 // tick. 0 falls back to 60s — recognition is one LLM call plus
 // bookkeeping; 60s is generous for a 35B local model on a normal-length
@@ -605,6 +628,7 @@ func (s *Scheduler) RunRecognitionNow(ctx context.Context) error {
 		return ErrRecognitionInFlight
 	}
 	defer s.recognitionRunning.Store(false)
+	ctx = llm.ContextWithServiceTier(ctx, s.serviceTier)
 	return s.recognitionFn(ctx)
 }
 
@@ -632,6 +656,7 @@ func (s *Scheduler) runRecognition() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
+	ctx = llm.ContextWithServiceTier(ctx, s.serviceTier)
 	err := s.recognitionFn(ctx)
 	if err != nil && s.log != nil {
 		s.log.WithError(err).Error("recognition failed")

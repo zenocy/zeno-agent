@@ -177,3 +177,178 @@ func TestReachable_ServerErrorSurfacesError(t *testing.T) {
 	c := NewClient(ClientConfig{Endpoint: srv.URL, Model: "stub", Retry: RetryPolicy{MaxAttempts: 1}})
 	require.Error(t, c.Reachable(context.Background()))
 }
+
+// captureServiceTier stands up a stub OpenAI-compatible /chat/completions
+// endpoint, captures the JSON body the client sends, and returns the
+// captured service_tier (or "" if absent). Used by the next four tests to
+// verify the request-build path picks the right tier without coupling to
+// the upstream OpenRouter API.
+func captureServiceTier(t *testing.T, ctx context.Context, opts ...ChatOption) (string, bool) {
+	t.Helper()
+	var (
+		gotTier    string
+		tierField  bool
+		gotRequest = make(chan struct{}, 1)
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		if v, ok := payload["service_tier"]; ok {
+			tierField = true
+			gotTier, _ = v.(string)
+		}
+		select {
+		case gotRequest <- struct{}{}:
+		default:
+		}
+		_, _ = io.WriteString(w, `{"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{}}`)
+	}))
+	defer srv.Close()
+
+	c := NewClient(ClientConfig{Endpoint: srv.URL, Model: "stub", Retry: RetryPolicy{MaxAttempts: 1}})
+	_, err := c.ChatCompletion(ctx, []Message{{Role: "user", Content: "hi"}}, nil, opts...)
+	require.NoError(t, err)
+	<-gotRequest
+	return gotTier, tierField
+}
+
+func TestServiceTier_OptionWins(t *testing.T) {
+	ctx := ContextWithServiceTier(context.Background(), "flex")
+	got, present := captureServiceTier(t, ctx, WithServiceTier("priority"))
+	require.True(t, present, "option set: field must be present")
+	require.Equal(t, "priority", got, "WithServiceTier must override ctx-borne tier")
+}
+
+func TestServiceTier_CtxFallback(t *testing.T) {
+	ctx := ContextWithServiceTier(context.Background(), "flex")
+	got, present := captureServiceTier(t, ctx)
+	require.True(t, present)
+	require.Equal(t, "flex", got, "ctx tier is used when no per-call option")
+}
+
+func TestServiceTier_OmittedWhenUnset(t *testing.T) {
+	_, present := captureServiceTier(t, context.Background())
+	require.False(t, present,
+		"with no option and no ctx tier, request must NOT include service_tier")
+}
+
+func TestServiceTier_EmptyOptionIsNoop(t *testing.T) {
+	// WithServiceTier("") must not stomp the ctx fallback — empty string
+	// should behave like "operator didn't set anything for this call".
+	ctx := ContextWithServiceTier(context.Background(), "flex")
+	got, present := captureServiceTier(t, ctx, WithServiceTier(""))
+	require.True(t, present)
+	require.Equal(t, "flex", got)
+}
+
+func TestContextWithServiceTier_EmptyReturnsSameCtx(t *testing.T) {
+	parent := context.Background()
+	child := ContextWithServiceTier(parent, "")
+	require.Equal(t, "", ServiceTierFromContext(child),
+		"empty tier must not stash a value")
+}
+
+// captureStreamServiceTier stands up a stub OpenAI-compatible
+// /chat/completions endpoint that speaks Server-Sent Events, captures
+// the JSON body the client sends, and returns the service_tier value.
+// Used to prove the streaming-path request build sets ServiceTier on
+// the wire — the direct-path tests can't cover that since the stream
+// path goes through the openai SDK's marshaller, not chatCompletionDirect.
+func captureStreamServiceTier(t *testing.T, ctx context.Context, opts ...ChatOption) (string, bool) {
+	t.Helper()
+	var (
+		gotTier   string
+		tierField bool
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		if v, ok := payload["service_tier"]; ok {
+			tierField = true
+			gotTier, _ = v.(string)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		flusher, ok := w.(http.Flusher)
+		require.True(t, ok, "test server must support flushing for SSE")
+		// One content chunk + a usage chunk + [DONE]. Enough to exit
+		// aggregateStream cleanly; we don't care about the payload.
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"}}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer srv.Close()
+
+	c := NewClient(ClientConfig{Endpoint: srv.URL, Model: "stub", Retry: RetryPolicy{MaxAttempts: 1}})
+	// Attach a stream callback so ChatCompletion routes to the
+	// streaming path via shouldStream — the same trigger production uses.
+	ctx = ContextWithStreamContent(ctx, StreamContentFunc(func(string) {}))
+	_, err := c.ChatCompletion(ctx, []Message{{Role: "user", Content: "hi"}}, nil, opts...)
+	require.NoError(t, err)
+	return gotTier, tierField
+}
+
+func TestServiceTier_Stream_OptionOnTheWire(t *testing.T) {
+	got, present := captureStreamServiceTier(t, context.Background(), WithServiceTier("flex"))
+	require.True(t, present, "stream path must place service_tier on the wire when set via option")
+	require.Equal(t, "flex", got)
+}
+
+func TestServiceTier_Stream_CtxOnTheWire(t *testing.T) {
+	ctx := ContextWithServiceTier(context.Background(), "priority")
+	got, present := captureStreamServiceTier(t, ctx)
+	require.True(t, present, "stream path must place ctx-borne service_tier on the wire")
+	require.Equal(t, "priority", got)
+}
+
+func TestServiceTier_Stream_OmittedWhenUnset(t *testing.T) {
+	_, present := captureStreamServiceTier(t, context.Background())
+	require.False(t, present,
+		"stream path with no option and no ctx tier must NOT include service_tier")
+}
+
+// TestServiceTier_AllValuesRoundTrip pins that every value
+// config.validateServiceTier accepts ("default", "flex", "priority")
+// reaches the wire byte-for-byte. Catches a regression where someone
+// adds a normalization step (e.g. lowercasing or aliasing "standard"
+// → "default") inside the LLM client and silently breaks the contract
+// with operators who configured a specific value.
+func TestServiceTier_AllValuesRoundTrip(t *testing.T) {
+	for _, tier := range []string{"default", "flex", "priority"} {
+		t.Run(tier, func(t *testing.T) {
+			got, present := captureServiceTier(t, context.Background(), WithServiceTier(tier))
+			require.True(t, present)
+			require.Equal(t, tier, got, "value must round-trip unchanged")
+		})
+	}
+}
+
+// resolveServiceTier is shared by both ChatCompletion (direct) and
+// ChatCompletionStream, so testing it here proves both paths pick the
+// right tier without needing two near-identical httptest harnesses.
+func TestResolveServiceTier(t *testing.T) {
+	cases := []struct {
+		name    string
+		ctxTier string
+		optTier string
+		want    string
+	}{
+		{"both empty", "", "", ""},
+		{"ctx only", "flex", "", "flex"},
+		{"opt only", "", "priority", "priority"},
+		{"opt wins over ctx", "flex", "priority", "priority"},
+		{"empty opt falls through", "flex", "", "flex"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			if tc.ctxTier != "" {
+				ctx = ContextWithServiceTier(ctx, tc.ctxTier)
+			}
+			require.Equal(t, tc.want, resolveServiceTier(ctx, tc.optTier))
+		})
+	}
+}

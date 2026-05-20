@@ -97,6 +97,10 @@ func (c *Client) ChatCompletionStream(
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
 	}
+	tier := resolveServiceTier(ctx, o.serviceTier)
+	if tier != "" {
+		req.ServiceTier = openai.ServiceTier(tier)
+	}
 
 	contentCb := StreamContentFromContext(ctx)
 	thinkingCb := StreamThinkingFromContext(ctx)
@@ -105,16 +109,17 @@ func (c *Client) ChatCompletionStream(
 	stream, err := c.api.CreateChatCompletionStream(ctx, req)
 	if err != nil {
 		c.trafficLog(logrus.Fields{
-			"purpose":     "chat",
-			"path":        "stream",
-			"model":       c.model,
-			"messages":    len(messages),
-			"tools":       len(tools),
-			"max_tokens":  req.MaxTokens,
-			"json_mode":   o.jsonMode,
-			"json_schema": o.jsonSchemaName,
-			"duration_ms": time.Since(start).Milliseconds(),
-			"error":       err.Error(),
+			"purpose":      "chat",
+			"path":         "stream",
+			"model":        c.model,
+			"messages":     len(messages),
+			"tools":        len(tools),
+			"max_tokens":   req.MaxTokens,
+			"json_mode":    o.jsonMode,
+			"json_schema":  o.jsonSchemaName,
+			"service_tier": tier,
+			"duration_ms":  time.Since(start).Milliseconds(),
+			"error":        err.Error(),
 		}, "llm: stream open failed")
 		return ChatResult{TotalDuration: time.Since(start)}, err
 	}
@@ -130,6 +135,7 @@ func (c *Client) ChatCompletionStream(
 		"max_tokens":        req.MaxTokens,
 		"json_mode":         o.jsonMode,
 		"json_schema":       o.jsonSchemaName,
+		"service_tier":      tier,
 		"prompt_tokens":     res.PromptTokens,
 		"completion_tokens": res.CompletionTokens,
 		"finish_reason":     res.FinishReason,

@@ -26,6 +26,7 @@ type streamContentKey struct{}
 type streamThinkingKey struct{}
 type streamProgressKey struct{}
 type perCallDeadlineKey struct{}
+type serviceTierKey struct{}
 
 // ContextWithStreamContent returns a new context carrying a content streaming callback.
 func ContextWithStreamContent(ctx context.Context, fn StreamContentFunc) context.Context {
@@ -74,4 +75,31 @@ func ContextWithPerCallDeadline(ctx context.Context, d time.Duration) context.Co
 func PerCallDeadlineFromContext(ctx context.Context) time.Duration {
 	d, _ := ctx.Value(perCallDeadlineKey{}).(time.Duration)
 	return d
+}
+
+// ContextWithServiceTier attaches an OpenRouter service tier to ctx.
+// Allowed values: "default", "flex", "priority" (provider-dependent;
+// see https://openrouter.ai/docs/guides/features/service-tiers).
+// Empty tier returns ctx unchanged so callers can pass a config value
+// verbatim without guarding for the "operator hasn't opted in" case.
+func ContextWithServiceTier(ctx context.Context, tier string) context.Context {
+	if tier == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, serviceTierKey{}, tier)
+}
+
+// ServiceTierFromContext returns the service tier carried by ctx, or "" if unset.
+func ServiceTierFromContext(ctx context.Context) string {
+	t, _ := ctx.Value(serviceTierKey{}).(string)
+	return t
+}
+
+// resolveServiceTier picks the per-call ChatOption value when non-empty,
+// falling back to the ctx-borne value. "" means: omit the field entirely.
+func resolveServiceTier(ctx context.Context, opt string) string {
+	if opt != "" {
+		return opt
+	}
+	return ServiceTierFromContext(ctx)
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/zenocy/zeno-v2/internal/config"
 	"github.com/zenocy/zeno-v2/internal/eventbus"
+	"github.com/zenocy/zeno-v2/internal/llm"
 	zlog "github.com/zenocy/zeno-v2/internal/log"
 	"github.com/zenocy/zeno-v2/internal/sensor"
 )
@@ -323,6 +324,124 @@ func TestScheduler_Recognition_FiresAfterMorningCron(t *testing.T) {
 	}, 3*time.Second, 50*time.Millisecond,
 		"morning_synth must fire and recognition must chain off it; got morning=%d recog=%d",
 		morningCalls.Load(), recogCalls.Load())
+}
+
+// TestScheduler_ServiceTier_PropagatesToCtx pins that WithServiceTier
+// causes both the manual *Now triggers and the cron-fired tick handlers
+// to stamp the configured tier onto the ctx they hand to user-supplied
+// fns. The LLM client downstream reads ServiceTierFromContext, so this
+// is the ground-truth integration point.
+func TestScheduler_ServiceTier_PropagatesToCtx(t *testing.T) {
+	var (
+		morningTier, recognitionTier, injectTier string
+		mu                                       sync.Mutex
+	)
+	capture := func(into *string) func(ctx context.Context) error {
+		return func(ctx context.Context) error {
+			mu.Lock()
+			*into = llm.ServiceTierFromContext(ctx)
+			mu.Unlock()
+			return nil
+		}
+	}
+
+	s, err := New(config.ScheduleConfig{}, nil, capture(&morningTier), quietEntry())
+	require.NoError(t, err)
+	s.WithServiceTier("flex").
+		WithRecognition(capture(&recognitionTier)).
+		WithInject(func(ctx context.Context, _ any) error {
+			mu.Lock()
+			injectTier = llm.ServiceTierFromContext(ctx)
+			mu.Unlock()
+			return nil
+		})
+
+	require.NoError(t, s.RunMorningNow(context.Background()))
+	require.NoError(t, s.RunRecognitionNow(context.Background()))
+	require.NoError(t, s.RunInjectNow(context.Background()))
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, "flex", morningTier, "RunMorningNow must stamp the configured tier")
+	require.Equal(t, "flex", recognitionTier, "RunRecognitionNow must stamp the configured tier")
+	require.Equal(t, "flex", injectTier, "RunInjectNow must stamp the configured tier")
+}
+
+// TestScheduler_ServiceTier_PropagatesOnCronTick pins that the
+// cron-fired (not manual) entry points also stamp the configured tier.
+// The cron path runs in its own goroutine with a fresh
+// `context.Background()` — easy to regress by forgetting one of the
+// tick handlers since they don't share a wrapper. Each handler is
+// covered with its own assertion below.
+func TestScheduler_ServiceTier_PropagatesOnCronTick(t *testing.T) {
+	var (
+		morningTier, recognitionTier string
+		mu                           sync.Mutex
+		morningSeen, recogSeen       = make(chan struct{}, 1), make(chan struct{}, 1)
+	)
+	morningFn := func(ctx context.Context) error {
+		mu.Lock()
+		morningTier = llm.ServiceTierFromContext(ctx)
+		mu.Unlock()
+		select {
+		case morningSeen <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+	recogFn := func(ctx context.Context) error {
+		mu.Lock()
+		recognitionTier = llm.ServiceTierFromContext(ctx)
+		mu.Unlock()
+		select {
+		case recogSeen <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+
+	// MorningCron @every 1s drives runMorningSynth, which chains
+	// runRecognition off itself — so a single cron tick exercises both
+	// non-manual tick handlers in one shot.
+	s, err := New(config.ScheduleConfig{MorningCron: "@every 1s"}, nil, morningFn, quietEntry())
+	require.NoError(t, err)
+	s.WithServiceTier("flex").WithRecognition(recogFn)
+	s.Start()
+	defer s.Stop()
+
+	select {
+	case <-morningSeen:
+	case <-time.After(3 * time.Second):
+		t.Fatal("cron-fired morning_synth did not fire within 3s")
+	}
+	select {
+	case <-recogSeen:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cron-chained recognition did not fire within 2s")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, "flex", morningTier,
+		"runMorningSynth (cron path) must stamp the configured tier")
+	require.Equal(t, "flex", recognitionTier,
+		"runRecognition (chained off cron) must stamp the configured tier")
+}
+
+// TestScheduler_ServiceTier_EmptyLeavesCtxUntouched pins the safe-rollout
+// promise: without WithServiceTier (or with empty tier), the scheduler
+// must not stash anything in ctx — the LLM call then omits the field
+// entirely and OpenRouter picks its upstream default.
+func TestScheduler_ServiceTier_EmptyLeavesCtxUntouched(t *testing.T) {
+	var got string
+	morningFn := func(ctx context.Context) error {
+		got = llm.ServiceTierFromContext(ctx)
+		return nil
+	}
+	s, err := New(config.ScheduleConfig{}, nil, morningFn, quietEntry())
+	require.NoError(t, err)
+	require.NoError(t, s.RunMorningNow(context.Background()))
+	require.Equal(t, "", got, "no WithServiceTier call → ctx must carry no tier")
 }
 
 // V2.5 post-launch: RunMorningNow (UI force-refresh) chains recognition

@@ -186,6 +186,20 @@ type LLMConfig struct {
 	JSONSchemaMode      string `mapstructure:"json_schema_mode"`         // "auto" | "on" | "off"; default "off" until Phase 0 probe
 	MaxTokens           int    `mapstructure:"max_tokens"`               // default 0 = no cap (let the upstream provider decide). The previous 16384 was a guardrail for local llama.cpp/LM Studio runs that would happily run away on long prompts; remote providers like Gemini cap themselves and the explicit cap was strangling repair calls in thinking mode (16K tokens of reasoning + truncated JSON).
 	NoThink             bool   `mapstructure:"no_think"`                 // when true, prepend "/no_think" to the briefing system prompt on Qwen3 models; cuts briefing latency ~2min → ~30s. Default false; flip on after measuring voice with `make eval`.
+
+	// ServiceTierBackground tags cron-fired and manually-triggered
+	// background LLM calls (morning synth, recognition, retrospective,
+	// sync) with OpenRouter's `service_tier` field. Allowed values:
+	// "" (omit field; upstream default), "default", "flex" (cheaper /
+	// higher latency), "priority" (faster / higher cost). Default ""
+	// keeps behavior unchanged until the operator opts in.
+	ServiceTierBackground string `mapstructure:"service_tier_background"`
+
+	// ServiceTierInteractive tags chat / Ask / draft / voice paths.
+	// Same allowed values as ServiceTierBackground; default "" omits
+	// the field. Set to "priority" if you want chat responses to skip
+	// the OpenRouter default queue.
+	ServiceTierInteractive string `mapstructure:"service_tier_interactive"`
 }
 
 // SensorsConfig groups all sensor settings.
@@ -340,7 +354,33 @@ func Load(path string) (*Config, error) {
 	if err := finalizeAuth(&cfg); err != nil {
 		return nil, err
 	}
+	if err := validateLLM(&cfg.LLM); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+// validateLLM rejects unknown values for the service-tier knobs. A typo
+// in YAML would otherwise be forwarded verbatim to OpenRouter, which
+// returns a 400; failing fast at boot is friendlier than a runtime
+// 400 from a random cron tick three hours after a config reload.
+func validateLLM(cfg *LLMConfig) error {
+	if err := validateServiceTier("llm.service_tier_background", cfg.ServiceTierBackground); err != nil {
+		return err
+	}
+	if err := validateServiceTier("llm.service_tier_interactive", cfg.ServiceTierInteractive); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateServiceTier(key, val string) error {
+	switch val {
+	case "", "default", "flex", "priority":
+		return nil
+	default:
+		return fmt.Errorf("%s: %q is not a valid service tier (allowed: \"\", \"default\", \"flex\", \"priority\")", key, val)
+	}
 }
 
 // finalizeAuth validates the AuthConfig and bootstraps the session secret.

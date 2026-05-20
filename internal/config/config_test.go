@@ -83,6 +83,55 @@ func TestProjectionsEnvOverride(t *testing.T) {
 	require.Equal(t, 5, cfg.Projections.OpenThreadsMax)
 }
 
+func TestServiceTierValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		yaml    string
+		wantErr string // substring; "" = expect success
+	}{
+		{
+			name: "empty defaults pass",
+			yaml: "auth:\n  enabled: false\n",
+		},
+		{
+			name: "flex background tier accepted",
+			yaml: "auth:\n  enabled: false\nllm:\n  service_tier_background: flex\n",
+		},
+		{
+			name: "priority interactive tier accepted",
+			yaml: "auth:\n  enabled: false\nllm:\n  service_tier_interactive: priority\n",
+		},
+		{
+			name: "default tier accepted on both",
+			yaml: "auth:\n  enabled: false\nllm:\n  service_tier_background: default\n  service_tier_interactive: default\n",
+		},
+		{
+			name:    "unknown background tier rejected",
+			yaml:    "auth:\n  enabled: false\nllm:\n  service_tier_background: turbo\n",
+			wantErr: "service_tier_background",
+		},
+		{
+			name:    "unknown interactive tier rejected",
+			yaml:    "auth:\n  enabled: false\nllm:\n  service_tier_interactive: blazing\n",
+			wantErr: "service_tier_interactive",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "config.yaml")
+			require.NoError(t, os.WriteFile(path, []byte("server:\n  port: 7777\n"+tc.yaml), 0o600))
+			_, err := Load(path)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
 func TestMetricsDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
