@@ -3,6 +3,7 @@ package synth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -364,4 +365,87 @@ func TestAsk_PopulatesSources(t *testing.T) {
 	require.Len(t, card.Sources, 2, "Ask must surface the model's sources list verbatim")
 	require.Equal(t, "Reuters: Trump delays Iran strike", card.Sources[0].T)
 	require.Equal(t, "https://www.reuters.com/world/middle-east/iran-pause-2026", card.Sources[0].U)
+}
+
+func TestSourcesFromCitations(t *testing.T) {
+	t.Run("empty input", func(t *testing.T) {
+		require.Nil(t, sourcesFromCitations(nil))
+		require.Nil(t, sourcesFromCitations([]llm.Citation{}))
+	})
+	t.Run("skips entries with empty URI", func(t *testing.T) {
+		got := sourcesFromCitations([]llm.Citation{
+			{Title: "no uri"},
+			{Title: "ok", URI: "https://a.example"},
+		})
+		require.Len(t, got, 1)
+		require.Equal(t, "ok", got[0].T)
+		require.Equal(t, "https://a.example", got[0].U)
+	})
+	t.Run("falls back to URI when title is empty", func(t *testing.T) {
+		got := sourcesFromCitations([]llm.Citation{
+			{URI: "https://a.example"},
+		})
+		require.Len(t, got, 1)
+		require.Equal(t, "https://a.example", got[0].T,
+			"missing title must fall back to URI so the UI doesn't render an empty anchor")
+	})
+	t.Run("dedups by URI", func(t *testing.T) {
+		got := sourcesFromCitations([]llm.Citation{
+			{Title: "A", URI: "https://a.example"},
+			{Title: "A again", URI: "https://a.example"},
+			{Title: "B", URI: "https://b.example"},
+		})
+		require.Len(t, got, 2, "duplicate URIs collapse to one entry")
+	})
+	t.Run("caps at 5", func(t *testing.T) {
+		in := []llm.Citation{}
+		for i := 0; i < 8; i++ {
+			in = append(in, llm.Citation{
+				Title: fmt.Sprintf("S%d", i),
+				URI:   fmt.Sprintf("https://example.com/%d", i),
+			})
+		}
+		require.Len(t, sourcesFromCitations(in), 5)
+	})
+}
+
+func TestPostProcessCard_OverridesSourcesFromCitations(t *testing.T) {
+	// Regression: when Gemini native google_search grounding fires, the
+	// model never sees the underlying URLs and fabricates the `u` field.
+	// postProcessCard must replace the model-emitted Sources with the
+	// citation-derived list so the UI renders real (redirect) URLs.
+	card := Card{
+		Title: "An answer",
+		Sub:   "Sub text long enough for postprocessing pass.",
+		Sources: []Source{
+			{T: "Fabricated", U: "Fabricated"}, // model hallucinated U
+		},
+	}
+	citations := []llm.Citation{
+		{Title: "Real source A", URI: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc"},
+		{Title: "Real source B", URI: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/def"},
+	}
+	postProcessCard(&card, "2026-05-20", nil, citations, nil)
+
+	require.Len(t, card.Sources, 2)
+	require.Equal(t, "Real source A", card.Sources[0].T)
+	require.Equal(t, "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", card.Sources[0].U)
+}
+
+func TestPostProcessCard_KeepsModelSourcesWhenNoCitations(t *testing.T) {
+	// OpenAI / OpenRouter flows: no native grounding, model populates
+	// Sources from search_web tool output. postProcessCard must not
+	// touch them.
+	original := []Source{
+		{T: "Reuters", U: "https://reuters.com/x"},
+	}
+	card := Card{
+		Title:   "An answer",
+		Sub:     "Sub text long enough for postprocessing pass.",
+		Sources: original,
+	}
+	postProcessCard(&card, "2026-05-20", nil, nil, nil)
+
+	require.Equal(t, original, card.Sources,
+		"non-Gemini flows keep the model-emitted sources unchanged")
 }

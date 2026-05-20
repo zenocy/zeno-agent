@@ -80,6 +80,13 @@ type LoopResult struct {
 	Stopped  string
 	Stats    LoopStats
 	Memories []MemoryCandidate // V2.2.0: derived-memory candidates extracted from `remember:` lines
+	// Citations carries the grounding citations surfaced by the final
+	// (natural-exit) model response. Currently only Gemini's native
+	// google_search grounding populates this; OpenAI/OpenRouter leave it
+	// empty. Reactive callers prefer these over model-emitted Card.Sources
+	// because the model never sees the underlying URLs when native
+	// grounding is in use — it can only fabricate the `u` field.
+	Citations []Citation
 }
 
 // MemoryCandidate is one `remember: <subject>: <predicate>` line lifted from
@@ -281,7 +288,9 @@ func RunLoop(
 			if cfg.Observer.OnLoopIters != nil {
 				cfg.Observer.OnLoopIters(cfg.Stage, stats.Iterations)
 			}
-			return finalizeWithMemories(trace, clean, StopOK, stats, repairs, memories), nil
+			res := finalizeWithMemories(trace, clean, StopOK, stats, repairs, memories)
+			res.Citations = cr.Citations
+			return res, nil
 		}
 
 		// Append the assistant's tool-call message.

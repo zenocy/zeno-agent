@@ -381,7 +381,7 @@ func Ask(ctx context.Context, d ReactiveDeps, query string) (retCard Card, retTr
 
 	card, err := parseAndValidateCard(result.Content)
 	if err == nil {
-		postProcessCard(&card, d.Date, IntentSet(d.WiredIntents), d.Logger)
+		postProcessCard(&card, d.Date, IntentSet(d.WiredIntents), result.Citations, d.Logger)
 		return card, result.Trace, result.Memories, nil
 	}
 
@@ -415,7 +415,7 @@ func Ask(ctx context.Context, d ReactiveDeps, query string) (retCard Card, retTr
 	// One repair pass — feed the validation error back and ask for clean JSON.
 	repaired, repairErr := repairCard(ctx, d, systemBuf.String(), query, result.Content, err)
 	if repairErr == nil {
-		postProcessCard(&repaired, d.Date, IntentSet(d.WiredIntents), d.Logger)
+		postProcessCard(&repaired, d.Date, IntentSet(d.WiredIntents), result.Citations, d.Logger)
 		return repaired, result.Trace, result.Memories, nil
 	}
 
@@ -423,7 +423,7 @@ func Ask(ctx context.Context, d ReactiveDeps, query string) (retCard Card, retTr
 		log.WithError(repairErr).
 			WithField("raw_preview", previewContent(result.Content, 500)).
 			Warn("reactive: repair failed — falling back to initial parsed card")
-		postProcessCard(&initialParsed, d.Date, IntentSet(d.WiredIntents), d.Logger)
+		postProcessCard(&initialParsed, d.Date, IntentSet(d.WiredIntents), result.Citations, d.Logger)
 		return initialParsed, result.Trace, result.Memories, nil
 	}
 
@@ -533,17 +533,59 @@ func repairCard(ctx context.Context, d ReactiveDeps, system, user, prevContent s
 
 // postProcessCard applies canonicalization and ID generation to a
 // single card. V2.8.1 added the wired-set filter so reactive answers
-// don't ship buttons that won't fire.
-func postProcessCard(c *Card, date string, wired map[string]struct{}, logger *logrus.Entry) {
+// don't ship buttons that won't fire. When citations are present
+// (Gemini native google_search grounding fired), Sources is replaced
+// wholesale with citation-derived entries — the model only sees
+// grounded text, never the underlying URLs, so any `sources[].u` it
+// emitted is fabricated.
+func postProcessCard(c *Card, date string, wired map[string]struct{}, citations []llm.Citation, logger *logrus.Entry) {
 	c.Title = canonicalizeMarkdown(c.Title)
 	c.Sub = canonicalizeMarkdown(c.Sub)
 	c.Date = date
 	c.ID = slugFromTitle(c.Title)
+	if src := sourcesFromCitations(citations); len(src) > 0 {
+		c.Sources = src
+	}
 	if dropped := dropUnwiredActions(c, wired); dropped > 0 && logger != nil {
 		logger.WithFields(logrus.Fields{
 			"card_id": c.ID, "dropped": dropped, "remaining": len(c.Actions),
 		}).Warn("reactive.action_dropped: removed actions whose intent isn't wired")
 	}
+}
+
+// sourcesFromCitations converts the provider-agnostic Citation slice
+// into the schema's []Source shape, capped at 5 entries (matching the
+// reactive prompt's documented cap). De-duplicates by URI so multiple
+// supports referencing the same chunk collapse to one anchor. Returns
+// nil when no citations carry a non-empty URI.
+func sourcesFromCitations(cits []llm.Citation) []Source {
+	if len(cits) == 0 {
+		return nil
+	}
+	const maxSources = 5
+	seen := map[string]struct{}{}
+	out := make([]Source, 0, len(cits))
+	for _, c := range cits {
+		if c.URI == "" {
+			continue
+		}
+		if _, dup := seen[c.URI]; dup {
+			continue
+		}
+		seen[c.URI] = struct{}{}
+		title := strings.TrimSpace(c.Title)
+		if title == "" {
+			title = c.URI
+		}
+		out = append(out, Source{T: title, U: c.URI})
+		if len(out) >= maxSources {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // previewContent returns up to maxLen characters of s with a "(empty)"
