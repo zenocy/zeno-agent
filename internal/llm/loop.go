@@ -305,6 +305,7 @@ func RunLoop(
 				msgs = append(msgs, Message{
 					Role:       "tool",
 					ToolCallID: tc.ID,
+					Name:       tc.Name,
 					Content:    "Duplicate call detected — same args used previously. Use a different approach or finalize.",
 				})
 				recordTool("DUPSTOP", tc.Name, "duplicate")
@@ -317,7 +318,7 @@ func RunLoop(
 			tool, ok := reg.Get(tc.Name)
 			if !ok {
 				msg := "Error: unknown tool " + tc.Name
-				msgs = append(msgs, Message{Role: "tool", ToolCallID: tc.ID, Content: msg})
+				msgs = append(msgs, Message{Role: "tool", ToolCallID: tc.ID, Name: tc.Name, Content: msg})
 				recordTool("ERR", tc.Name, "unknown")
 				if cfg.Observer.OnTool != nil {
 					cfg.Observer.OnTool(tc.Name, "unknown", 0)
@@ -340,7 +341,7 @@ func RunLoop(
 					toolOutcome = "timeout"
 				}
 				msgs = append(msgs, Message{
-					Role: "tool", ToolCallID: tc.ID,
+					Role: "tool", ToolCallID: tc.ID, Name: tc.Name,
 					Content: "Error: " + note,
 				})
 				recordToolWithRefs(opVerbFor(tc.Name), targetFromArgs(tc.Arguments), note, refs)
@@ -356,7 +357,7 @@ func RunLoop(
 				}
 				continue
 			}
-			msgs = append(msgs, Message{Role: "tool", ToolCallID: tc.ID, Content: out})
+			msgs = append(msgs, Message{Role: "tool", ToolCallID: tc.ID, Name: tc.Name, Content: out})
 			recordToolWithRefs(opVerbFor(tc.Name), targetFromArgs(tc.Arguments), "", refs)
 			if cfg.Logger != nil {
 				cfg.Logger.WithFields(logrus.Fields{

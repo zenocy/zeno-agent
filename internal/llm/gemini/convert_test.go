@@ -94,12 +94,61 @@ func TestConvertMessages_AmbiguousToolCallWarning(t *testing.T) {
 
 func TestConvertMessages_ToolResultBecomesUserFunctionResponse(t *testing.T) {
 	msgs := []llm.Message{
-		{Role: "tool", ToolCallID: "call_read_thread_1", Content: "thread body"},
+		{Role: "tool", ToolCallID: "call_read_thread_1", Name: "read_thread", Content: "thread body"},
 	}
 	_, contents, _ := convertMessages(msgs)
 	require.Len(t, contents, 1)
 	require.Equal(t, string(genai.RoleUser), contents[0].Role)
-	require.NotNil(t, contents[0].Parts[0].FunctionResponse)
+	fr := contents[0].Parts[0].FunctionResponse
+	require.NotNil(t, fr)
+	require.Equal(t, "read_thread", fr.Name,
+		"FunctionResponse.Name must come from Message.Name verbatim — Gemini correlates by name")
+	require.Equal(t, "call_read_thread_1", fr.ID,
+		"ToolCallID should also be forwarded as FunctionResponse.ID")
+}
+
+func TestConvertMessages_ToolResultRoundTripsSameNameCorrelation(t *testing.T) {
+	// Regression for the read_thread/read_tasks correlation bug: when the
+	// model emits multiple FunctionCalls with the same name in one turn,
+	// the FunctionResponse parts the next turn must also carry that
+	// exact name. Earlier code derived the name from a synthesized
+	// ToolCallID via prefix-stripping, which produced "read_thread_0"
+	// from "call_read_thread_0" — a name Gemini doesn't recognize, so
+	// the responses were dropped and the model re-issued the same calls.
+	msgs := []llm.Message{
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call_read_thread_0", Name: "read_thread", Arguments: map[string]any{"id": "T1"}},
+			{ID: "call_read_thread_1", Name: "read_thread", Arguments: map[string]any{"id": "T2"}},
+		}},
+		{Role: "tool", ToolCallID: "call_read_thread_0", Name: "read_thread", Content: "body 1"},
+		{Role: "tool", ToolCallID: "call_read_thread_1", Name: "read_thread", Content: "body 2"},
+	}
+	_, contents, _ := convertMessages(msgs)
+	require.Len(t, contents, 3)
+
+	asstParts := contents[0].Parts
+	require.Len(t, asstParts, 2)
+	require.Equal(t, "read_thread", asstParts[0].FunctionCall.Name)
+	require.Equal(t, "read_thread", asstParts[1].FunctionCall.Name)
+
+	resp1 := contents[1].Parts[0].FunctionResponse
+	resp2 := contents[2].Parts[0].FunctionResponse
+	require.Equal(t, "read_thread", resp1.Name)
+	require.Equal(t, "read_thread", resp2.Name)
+}
+
+func TestConvertMessages_ToolResultFallsBackWhenNameMissing(t *testing.T) {
+	// Backward compat: a tool message without Name still produces a
+	// best-effort FunctionResponse via the toolNameFromID shim.
+	msgs := []llm.Message{
+		{Role: "tool", ToolCallID: "call_legacy_id", Content: "result"},
+	}
+	_, contents, _ := convertMessages(msgs)
+	require.Len(t, contents, 1)
+	fr := contents[0].Parts[0].FunctionResponse
+	require.NotNil(t, fr)
+	require.Equal(t, "legacy_id", fr.Name,
+		"fallback must strip the call_ prefix when Name is absent")
 }
 
 func TestConvertResult_BasicResponse(t *testing.T) {

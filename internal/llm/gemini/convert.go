@@ -26,8 +26,10 @@ import (
 //     only FunctionCall parts (no empty TextPart), since Gemini
 //     rejects content with zero parts.
 //   - A tool result message (Role=="tool") becomes a user-role content
-//     with FunctionResponse parts. ToolCallID is discarded — Gemini
-//     correlates by Name + positional order within the turn.
+//     with a FunctionResponse part. Gemini correlates the response to
+//     its FunctionCall by Name (positionally when names collide), so the
+//     loop passes Message.Name through to FunctionResponse.Name; we also
+//     forward ToolCallID into FunctionResponse.ID as a secondary signal.
 func convertMessages(in []llm.Message) (system *genai.Content, contents []*genai.Content, warnings []string) {
 	contents = make([]*genai.Content, 0, len(in))
 
@@ -116,12 +118,25 @@ func convertMessages(in []llm.Message) (system *genai.Content, contents []*genai
 			// shaped response. The internal Message.Content carries the
 			// raw stringified tool output, which we wrap into {"result":
 			// ...} so downstream models can read it without grappling
-			// with shape ambiguity. Lossy on ToolCallID — Gemini
-			// correlates by name + position.
-			resp := map[string]any{"result": m.Content}
-			parts := []*genai.Part{
-				genai.NewPartFromFunctionResponse(toolNameFromID(m.ToolCallID), resp),
+			// with shape ambiguity. Name must match the originating
+			// FunctionCall.Name — Gemini correlates by name (positionally
+			// when names collide) and silently drops responses with a
+			// mismatched name, which causes the model to re-issue the
+			// same calls. The loop passes m.Name; we fall back to the
+			// best-effort toolNameFromID shim only for callers that
+			// predate the Name field.
+			name := m.Name
+			if name == "" {
+				name = toolNameFromID(m.ToolCallID)
 			}
+			resp := map[string]any{"result": m.Content}
+			parts := []*genai.Part{{
+				FunctionResponse: &genai.FunctionResponse{
+					ID:       m.ToolCallID,
+					Name:     name,
+					Response: resp,
+				},
+			}}
 			contents = append(contents, &genai.Content{
 				Role:  string(genai.RoleUser),
 				Parts: parts,
@@ -135,17 +150,13 @@ func convertMessages(in []llm.Message) (system *genai.Content, contents []*genai
 	return system, contents, warnings
 }
 
-// toolNameFromID extracts a tool name when the loop synthesizes a tool
-// message. The loop's tool-result messages set ToolCallID; the name
-// itself isn't on the message because the OpenAI wire format ties
-// responses to calls via ID. For Gemini we lift the name back out of
-// the call site: the loop sets ToolCallID to a deterministic prefix
-// (e.g. "call_abc"), but the actual function name is what Gemini
-// needs. The caller wires this via the FunctionResponse part name; in
-// our case we fall back to "tool_response" when the ID alone is
-// unparseable. This is a known limitation — callers can mitigate by
-// passing the tool name in ToolCallID itself, but the cleaner long-
-// term fix is to add a ToolName field to llm.Message.
+// toolNameFromID is a best-effort fallback used only when a tool result
+// message arrives without Message.Name set. The current loop always
+// populates Name; this shim survives to handle traces and tests written
+// before the field existed. Strips the "call_" prefix sashabaranov-
+// style IDs use and otherwise returns the ID verbatim, which produces
+// wrong names for IDs synthesized from "call_<name>_<ordinal>" — that
+// ambiguity is exactly the reason Message.Name now carries the truth.
 func toolNameFromID(id string) string {
 	if id == "" {
 		return "tool_response"

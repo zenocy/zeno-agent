@@ -6,11 +6,19 @@ import "time"
 
 // Message is one entry in a chat conversation.
 type Message struct {
-	Role            string     `json:"role"`
-	Content         string     `json:"content"`
-	ToolCallID      string     `json:"tool_call_id,omitempty"`
-	ToolCalls       []ToolCall `json:"tool_calls,omitempty"`
-	CacheBreakpoint bool       `json:"cache_breakpoint,omitempty"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	// Name is the function name a tool result is paired with. The loop
+	// sets it on Role=="tool" messages so the Gemini provider can fill
+	// FunctionResponse.Name — Gemini correlates tool responses to their
+	// FunctionCalls by name (positionally when names collide), not by ID,
+	// so omitting it causes the response to be dropped silently and the
+	// model to re-issue the same tool calls. OpenAI-compatible providers
+	// correlate by ToolCallID alone and ignore this field.
+	Name            string `json:"name,omitempty"`
+	CacheBreakpoint bool   `json:"cache_breakpoint,omitempty"`
 
 	// NoMerge is honored by message normalization to keep this message from
 	// merging with an adjacent same-role one. Used to keep a STATIC cache-prefix
