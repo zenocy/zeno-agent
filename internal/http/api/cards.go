@@ -8,6 +8,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 
+	"github.com/zenocy/zeno-v2/internal/log"
+	"github.com/zenocy/zeno-v2/internal/projection"
 	"github.com/zenocy/zeno-v2/internal/store"
 )
 
@@ -21,6 +23,14 @@ type CardsHandler struct {
 	TZ     func() *time.Location
 	Now    func() time.Time
 	Log    *logrus.Entry
+
+	// V2.x live binding: Reader + ProjCfg + Tickers back the serve-time
+	// resolution of `live` fields (weather / stock / countdown). When
+	// Reader is nil the resolution is skipped and cards render their static
+	// skeletons (with any sentinels stripped) unchanged.
+	Reader  log.Reader
+	ProjCfg projection.Config
+	Tickers projection.TickerSource
 }
 
 // Register attaches the cards routes to the Echo instance.
@@ -47,8 +57,18 @@ type cardDTO struct {
 	Actions  []cardActionDTO   `json:"actions"`
 	Expand   map[string]string `json:"expand,omitempty"`
 	Sources  []cardSourceDTO   `json:"sources,omitempty"`
+	Items    []digestItemDTO   `json:"items,omitempty"` // V2.x digest children
+	Live     []liveChipDTO     `json:"live,omitempty"`  // V2.x resolved live values
 	TraceID  string            `json:"trace_id,omitempty"`
 	Pinned   bool              `json:"pinned,omitempty"` // V2.8.1
+}
+
+// digestItemDTO is one rolled-up child of a kind="digest" card.
+type digestItemDTO struct {
+	Title string `json:"title"`
+	Sub   string `json:"sub,omitempty"`
+	Src   string `json:"src,omitempty"`
+	Ref   string `json:"ref,omitempty"`
 }
 
 type cardActionDTO struct {
@@ -87,9 +107,10 @@ func (h *CardsHandler) list(c echo.Context) error {
 		return Internal(c, err)
 	}
 
+	lv := buildLiveViews(c.Request().Context(), h, rows, now())
 	out := cardsListResponse{Date: date, Cards: make([]cardDTO, 0, len(rows))}
 	for _, r := range rows {
-		out.Cards = append(out.Cards, toCardDTO(r))
+		out.Cards = append(out.Cards, toCardDTO(r, lv))
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -118,9 +139,10 @@ func (h *CardsHandler) archive(c echo.Context) error {
 		return Internal(c, err)
 	}
 
+	lv := buildLiveViews(c.Request().Context(), h, rows, now())
 	out := cardsListResponse{Date: date, Cards: make([]cardDTO, 0, len(rows))}
 	for _, r := range rows {
-		out.Cards = append(out.Cards, toCardDTO(r))
+		out.Cards = append(out.Cards, toCardDTO(r, lv))
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -160,8 +182,10 @@ func (h *CardsHandler) traceByID(c echo.Context) error {
 }
 
 // toCardDTO unmarshals the card's JSON columns and shapes the DTO to match
-// the UI's expected JSON keys.
-func toCardDTO(r store.Card) cardDTO {
+// the UI's expected JSON keys. lv carries the per-request projections used
+// to resolve serve-time live fields; pass the zero value to skip live
+// resolution (sentinels are still stripped so no raw tokens leak).
+func toCardDTO(r store.Card, lv liveViews) cardDTO {
 	d := cardDTO{
 		ID:       r.ID,
 		Date:     r.Date,
@@ -193,5 +217,19 @@ func toCardDTO(r store.Card) cardDTO {
 	if len(r.Sources) > 0 {
 		_ = json.Unmarshal(r.Sources, &d.Sources)
 	}
+	if len(r.Items) > 0 {
+		_ = json.Unmarshal(r.Items, &d.Items)
+	}
+
+	// V2.x live binding: substitute sentinels in meta/sub from the latest
+	// projection and expose the resolved chips. Always runs the strip path
+	// so an un-resolved sentinel never leaks to the UI.
+	meta, sub, chips := applyLiveFields(r.Live, d.Meta, d.Sub, lv)
+	d.Meta = meta
+	if d.Meta == nil {
+		d.Meta = []string{}
+	}
+	d.Sub = sub
+	d.Live = chips
 	return d
 }

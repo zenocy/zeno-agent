@@ -28,6 +28,9 @@ const (
 	// applies on top of any pre-filtering the projection did. A breach
 	// older than this is past awareness — don't wake the reactive synth.
 	DefaultStockBreachHorizon = 15 * time.Minute
+	// DefaultCalendarSoonHorizon is how close an event's start must be to
+	// fire the calendar_soon (update-in-place countdown refresh) path.
+	DefaultCalendarSoonHorizon = 30 * time.Minute
 )
 
 // InjectDetectorDeps is the typed surface Detect reads. Built fresh per
@@ -61,6 +64,9 @@ type InjectDetectorConfig struct {
 	// StockBreachHorizon caps how recent a stock.alert event must be to
 	// fire the stock-breach path. 0 → DefaultStockBreachHorizon.
 	StockBreachHorizon time.Duration
+	// CalendarSoonHorizon is the "starts within" window for the
+	// calendar_soon path. 0 → DefaultCalendarSoonHorizon.
+	CalendarSoonHorizon time.Duration
 }
 
 // DefaultConcernConfidenceFloor is the V2.5.0 floor below which the
@@ -87,6 +93,7 @@ func DefaultInjectConfig() InjectDetectorConfig {
 		},
 		ConcernConfidenceFloor: DefaultConcernConfidenceFloor,
 		StockBreachHorizon:     DefaultStockBreachHorizon,
+		CalendarSoonHorizon:    DefaultCalendarSoonHorizon,
 	}
 }
 
@@ -127,21 +134,58 @@ func Detect(deps InjectDetectorDeps, cfg InjectDetectorConfig) *synth.InjectSign
 		return nil
 	}
 
-	if sig := detectCalendarMove(deps, cfg, now); sig != nil {
+	// V2.x: the set of entity keys already carried by today's cards. A
+	// signal whose entity is in this set is an UPDATE (refresh the card in
+	// place); otherwise it's an APPEND (a new inject card). Computed once.
+	present := buildEntityKeySet(deps.Cards)
+
+	// Priority order: most time-sensitive first. Calendar moves and
+	// imminent starts trump markets; markets trump email. thread_reply
+	// (an already-carded thread got a reply) runs ahead of the VIP/concern
+	// email paths because "the user already cares — there's a card" is a
+	// stronger, broader signal than a name match.
+	if sig := detectCalendarMove(deps, cfg, now, present); sig != nil {
 		return sig
 	}
-	if sig := detectStockBreach(deps, cfg, now); sig != nil {
+	if sig := detectCalendarSoon(deps, cfg, now, present); sig != nil {
 		return sig
 	}
-	if sig := detectEmail(deps, cfg, now); sig != nil {
+	if sig := detectStockBreach(deps, cfg, now, present); sig != nil {
 		return sig
 	}
-	return detectConcernEmail(deps, cfg, now)
+	if sig := detectThreadReply(deps, cfg, now, present); sig != nil {
+		return sig
+	}
+	if sig := detectEmail(deps, cfg, now, present); sig != nil {
+		return sig
+	}
+	return detectConcernEmail(deps, cfg, now, present)
+}
+
+// buildEntityKeySet collects the non-empty entity keys carried by today's
+// cards — the basis for the update-vs-append decision.
+func buildEntityKeySet(cards []store.Card) map[string]bool {
+	out := make(map[string]bool, len(cards))
+	for _, c := range cards {
+		if c.EntityKey != "" {
+			out[c.EntityKey] = true
+		}
+	}
+	return out
+}
+
+// modeFor returns "update" when the entity already has a card today,
+// "append" otherwise. Empty entityKey is always append.
+func modeFor(entityKey string, present map[string]bool) string {
+	if entityKey != "" && present[entityKey] {
+		return synth.InjectModeUpdate
+	}
+	return synth.InjectModeAppend
 }
 
 // detectCalendarMove walks the calendar for upcoming events that were
 // recently changed (a board call moved up, etc).
-func detectCalendarMove(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time) *synth.InjectSignal {
+func detectCalendarMove(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time, present map[string]bool) *synth.InjectSignal {
 	horizon := now.Add(cfg.CalendarMoveHorizon)
 	modCutoff := now.Add(-cfg.CalendarMoveModifiedHorizon)
 
@@ -166,11 +210,109 @@ func detectCalendarMove(deps InjectDetectorDeps, cfg InjectDetectorConfig, now t
 	if pick == nil {
 		return nil
 	}
+	ek := synth.EventEntityKey(pick.UID)
 	return &synth.InjectSignal{
 		Kind:       "calendar_move",
 		Subject:    pick.Title,
 		EvidenceID: pick.UID,
 		At:         now,
+		EntityKey:  ek,
+		Mode:       modeFor(ek, present),
+	}
+}
+
+// detectCalendarSoon fires when an attendee event is about to start
+// (within CalendarSoonHorizon) AND already has a card today — an
+// update-only path that refreshes the card's countdown/imminence. It never
+// appends: a soon-starting event the user has never seen a card for is left
+// to the morning grid, keeping this conservative. Soonest start wins.
+func detectCalendarSoon(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time, present map[string]bool) *synth.InjectSignal {
+	if len(present) == 0 {
+		return nil
+	}
+	horizonDur := cfg.CalendarSoonHorizon
+	if horizonDur <= 0 {
+		horizonDur = DefaultCalendarSoonHorizon
+	}
+	horizon := now.Add(horizonDur)
+
+	var pick *projection.CalendarEvent
+	var pickKey string
+	for i := range deps.Calendar {
+		ev := deps.Calendar[i]
+		if !ev.Start.After(now) || ev.Start.After(horizon) {
+			continue
+		}
+		if len(ev.Attendees) < cfg.CalendarMoveMinAttendees {
+			continue
+		}
+		ek := synth.EventEntityKey(ev.UID)
+		if !present[ek] {
+			continue
+		}
+		if pick == nil || ev.Start.Before(pick.Start) {
+			ev := ev
+			pick = &ev
+			pickKey = ek
+		}
+	}
+	if pick == nil {
+		return nil
+	}
+	return &synth.InjectSignal{
+		Kind:       "calendar_soon",
+		Subject:    pick.Title,
+		EvidenceID: pick.UID,
+		At:         now,
+		EntityKey:  pickKey,
+		Mode:       synth.InjectModeUpdate,
+	}
+}
+
+// detectThreadReply fires when an open thread that ALREADY has a card today
+// receives a fresh unread message — regardless of whether the sender is a
+// VIP. The existing card is the signal that the user cares; a reply on it
+// is high-value and should refresh the card in place rather than spawn a
+// duplicate. Deny patterns + the email recency horizon still apply.
+func detectThreadReply(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time, present map[string]bool) *synth.InjectSignal {
+	if len(deps.Threads) == 0 || len(present) == 0 {
+		return nil
+	}
+	emailCutoff := now.Add(-cfg.EmailHorizon)
+
+	var pick *projection.Thread
+	var pickKey string
+	for i := range deps.Threads {
+		t := deps.Threads[i]
+		if t.UnreadCount < 1 {
+			continue
+		}
+		if t.LastReceived.Before(emailCutoff) {
+			continue
+		}
+		if matchesAny(cfg.DenySubjectPatterns, t.Subject) {
+			continue
+		}
+		ek := synth.ThreadEntityKey(t.Subject)
+		if !present[ek] {
+			continue
+		}
+		if pick == nil || t.LastReceived.After(pick.LastReceived) {
+			t := t
+			pick = &t
+			pickKey = ek
+		}
+	}
+	if pick == nil {
+		return nil
+	}
+	return &synth.InjectSignal{
+		Kind:       "thread_reply",
+		Subject:    pick.Subject,
+		EvidenceID: pick.Subject,
+		At:         now,
+		EntityKey:  pickKey,
+		Mode:       synth.InjectModeUpdate,
 	}
 }
 
@@ -178,7 +320,7 @@ func detectCalendarMove(deps InjectDetectorDeps, cfg InjectDetectorConfig, now t
 // the most-recent breach inside StockBreachHorizon. Tickers, prices
 // and thresholds are pre-validated by the sensor — this path only
 // applies the recency cap and picks the freshest signal.
-func detectStockBreach(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time) *synth.InjectSignal {
+func detectStockBreach(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time, present map[string]bool) *synth.InjectSignal {
 	if len(deps.StockBreaches) == 0 {
 		return nil
 	}
@@ -204,11 +346,14 @@ func detectStockBreach(deps InjectDetectorDeps, cfg InjectDetectorConfig, now ti
 		return nil
 	}
 	subject := stockBreachSubject(*pick)
+	ek := synth.TickerEntityKey(pick.Ticker)
 	return &synth.InjectSignal{
 		Kind:       "stock_breach",
 		Subject:    subject,
 		EvidenceID: pick.EvidenceID,
 		At:         now,
+		EntityKey:  ek,
+		Mode:       modeFor(ek, present),
 	}
 }
 
@@ -225,7 +370,7 @@ func stockBreachSubject(b projection.StockBreach) string {
 
 // detectEmail walks open threads for an unread message from someone the
 // morning grid already cares about.
-func detectEmail(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time) *synth.InjectSignal {
+func detectEmail(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time, present map[string]bool) *synth.InjectSignal {
 	if len(deps.Threads) == 0 {
 		return nil
 	}
@@ -257,11 +402,14 @@ func detectEmail(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Tim
 	if pick == nil {
 		return nil
 	}
+	ek := synth.ThreadEntityKey(pick.Subject)
 	return &synth.InjectSignal{
 		Kind:       "email",
 		Subject:    pick.Subject,
 		EvidenceID: pick.Subject, // V2.3 has no thread IDs; subject is the stable handle
 		At:         now,
+		EntityKey:  ek,
+		Mode:       modeFor(ek, present),
 	}
 }
 
@@ -272,7 +420,7 @@ func detectEmail(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Tim
 // same primitive `lookup_concern` uses, so the detector stays
 // decoupled from the tag store. Confidence floor (default 0.7) keeps
 // the path conservative.
-func detectConcernEmail(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time) *synth.InjectSignal {
+func detectConcernEmail(deps InjectDetectorDeps, cfg InjectDetectorConfig, now time.Time, present map[string]bool) *synth.InjectSignal {
 	if len(deps.Threads) == 0 || len(deps.Concerns) == 0 {
 		return nil
 	}
@@ -335,11 +483,14 @@ func detectConcernEmail(deps InjectDetectorDeps, cfg InjectDetectorConfig, now t
 	if pick == nil {
 		return nil
 	}
+	ek := synth.ThreadEntityKey(pick.Subject)
 	return &synth.InjectSignal{
 		Kind:       "email",
 		Subject:    pick.Subject,
 		EvidenceID: pick.Subject,
 		At:         now,
+		EntityKey:  ek,
+		Mode:       modeFor(ek, present),
 	}
 }
 

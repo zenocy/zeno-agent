@@ -91,6 +91,27 @@ export interface CardSource {
   u: string;
 }
 
+// One rolled-up child of a kind="digest" card (V2.x). The server collapses
+// many low-signal items (newsletters, minor threads) into one card to cut
+// visual repetition; `ref` carries the item's entity key for promotion.
+export interface DigestItem {
+  title: string;
+  sub?: string;
+  src?: string;
+  ref?: string;
+}
+
+// A serve-time resolved live value (V2.x). The server substitutes the value
+// into meta/sub in place; this carries the freshness metadata so the UI can
+// grey out a stale reading or show an "as of" hint.
+export interface LiveChip {
+  slot: string;
+  kind: string;
+  text: string;
+  stale?: boolean;
+  as_of?: string;
+}
+
 export interface Card {
   id: string;
   date: string;
@@ -112,6 +133,12 @@ export interface Card {
   meta: string[];
   actions: CardAction[];
   expand?: Record<string, string>;
+  // Rolled-up children, present only on kind="digest" cards (V2.x).
+  items?: DigestItem[];
+  // Serve-time resolved live values with freshness metadata (V2.x). The
+  // value text is already substituted into `meta`/`sub`; this is for
+  // rendering a freshness affordance (e.g. greying a stale reading).
+  live?: LiveChip[];
   trace_id?: string;
   origin?: string;
   pinned?: boolean; // V2.8.1

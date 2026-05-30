@@ -69,6 +69,39 @@ type Card struct {
 	// Null on cards that didn't use the web tools; the cardDTO
 	// unmarshal handles both null and empty array.
 	Sources datatypes.JSON `gorm:"type:text" json:"sources,omitempty"`
+
+	// EntityKey is the V2.x continuity anchor — a stable, date-independent
+	// handle for the underlying entity ("cal:<uid>", "thread:<slug>",
+	// "ticker:AAPL", "digest:<date>", "propose:<id>"). Derived server-side
+	// by synth.resolveEntityKey and used AS the card ID for anchored cards,
+	// so a refresh or next-day run Upserts the same entity in place rather
+	// than minting a duplicate. Empty for legacy/unanchored rows, which
+	// keep title-slug identity. AutoMigrate adds the column; existing rows
+	// backfill "".
+	EntityKey string `gorm:"type:text;index" json:"-"`
+
+	// LastMaterialAt is the last time this card's material content
+	// (Title/Sub) actually changed — distinct from CreatedAt, which moves
+	// on every idempotent re-upsert. Powers the "still open since…" UI
+	// affordance and the "surface only if changed" prompt hint. Nil until
+	// the first material write under the new code.
+	LastMaterialAt *time.Time `gorm:"index" json:"-"`
+
+	// FirstShownDate is the earliest date this entity surfaced ("YYYY-MM-DD").
+	// Set once on first insert and preserved across re-upserts so the UI can
+	// show how long a thread/event has been open. Empty on legacy rows.
+	FirstShownDate string `gorm:"type:text;default:''" json:"-"`
+
+	// Items is the JSON-marshaled list of rolled-up children for a
+	// kind="digest" card. Shape matches synth.DigestItem. Null on ordinary
+	// cards; the cardDTO unmarshal handles both null and empty array.
+	Items datatypes.JSON `gorm:"type:text" json:"items,omitempty"`
+
+	// Live is the JSON-marshaled list of serve-time data bindings the model
+	// declared. Shape matches synth.LiveField. The HTTP layer resolves each
+	// against the latest projection on GET. Null on cards with no volatile
+	// data.
+	Live datatypes.JSON `gorm:"type:text" json:"live,omitempty"`
 }
 
 // CardRepo persists and reads Card rows. The Table field controls which
@@ -104,7 +137,18 @@ func (r *CardRepo) Migrate() error {
 		"CREATE INDEX IF NOT EXISTS %s ON %s (date, kind, source)",
 		newIdx, tbl,
 	)
-	return r.DB.Exec(stmt).Error
+	if err := r.DB.Exec(stmt).Error; err != nil {
+		return err
+	}
+	// V2.x: entity-key index backs ListRecentEntities and the
+	// cross-source dedup fold in ListByDate. Non-unique — an entity can
+	// have a row per source until the fold collapses them at read time.
+	ekIdx := fmt.Sprintf("idx_%s_entity_key", tbl)
+	ekStmt := fmt.Sprintf(
+		"CREATE INDEX IF NOT EXISTS %s ON %s (entity_key)",
+		ekIdx, tbl,
+	)
+	return r.DB.Exec(ekStmt).Error
 }
 
 // Upsert inserts or replaces cards keyed by ID. IDs are slugFromTitle-derived
@@ -118,6 +162,66 @@ func (r *CardRepo) Upsert(ctx context.Context, cards []Card) error {
 	}
 	return r.DB.WithContext(ctx).Table(r.tableName()).
 		Clauses(onConflictUpdateAll("id")).Create(&cards).Error
+}
+
+// UpsertWithContinuity is the V2.x entity-aware upsert. For each incoming
+// card it loads the existing row (by ID — which for anchored cards is the
+// entity key) and carries forward the fields that must survive an
+// idempotent re-run or a next-day refresh of the same entity:
+//
+//   - FirstShownDate — set once on first insert, preserved thereafter so the
+//     UI can show how long a thread/event has been open.
+//   - LastMaterialAt — bumped to `now` only when the card's material content
+//     (Title/Sub) actually changed; otherwise the prior value is kept so a
+//     no-op re-run doesn't look like fresh activity.
+//   - Dismissed / SnoozedDate / Pinned — user actions stick. Because IDs are
+//     now stable across days, a naive overwrite would resurrect a card the
+//     user dismissed yesterday; preserving these keeps dismissal durable.
+//
+// The carry-forward values are written onto the row before the base Upsert
+// (which overwrites all columns), so the net effect is that only synth-owned
+// content fields move and user/continuity state is retained.
+func (r *CardRepo) UpsertWithContinuity(ctx context.Context, cards []Card, now time.Time) error {
+	if len(cards) == 0 {
+		return nil
+	}
+	for i := range cards {
+		c := &cards[i]
+		existing, err := r.GetByID(ctx, c.ID)
+		if err != nil {
+			return err
+		}
+		if existing == nil {
+			if c.FirstShownDate == "" {
+				c.FirstShownDate = c.Date
+			}
+			if c.LastMaterialAt == nil {
+				t := now
+				c.LastMaterialAt = &t
+			}
+			continue
+		}
+		// Preserve first-shown + user actions.
+		if existing.FirstShownDate != "" {
+			c.FirstShownDate = existing.FirstShownDate
+		} else if c.FirstShownDate == "" {
+			c.FirstShownDate = c.Date
+		}
+		c.Dismissed = existing.Dismissed
+		c.SnoozedDate = existing.SnoozedDate
+		c.Pinned = existing.Pinned
+		// Bump LastMaterialAt only on a real content change.
+		if existing.Title != c.Title || existing.Sub != c.Sub {
+			t := now
+			c.LastMaterialAt = &t
+		} else if existing.LastMaterialAt != nil {
+			c.LastMaterialAt = existing.LastMaterialAt
+		} else {
+			t := now
+			c.LastMaterialAt = &t
+		}
+	}
+	return r.Upsert(ctx, cards)
 }
 
 // DeleteStale removes any card row for the given date that wasn't part of
@@ -157,7 +261,109 @@ func (r *CardRepo) ListByDate(ctx context.Context, date string) ([]Card, error) 
 		).
 		Order("pinned DESC, CASE rel WHEN 'high' THEN 0 WHEN 'med' THEN 1 WHEN 'low' THEN 2 ELSE 3 END ASC, created_at ASC").
 		Find(&out).Error
-	return out, err
+	if err != nil {
+		return nil, err
+	}
+	return foldByEntityKey(out), nil
+}
+
+// foldByEntityKey collapses rows that share a non-empty EntityKey down to
+// one — the V2.x cross-source dedup that stops an ask/inject card and a
+// morning card about the same thread/event from both showing. Rows with an
+// empty EntityKey (legacy/unanchored) are never folded. Within a group the
+// winner is pinned-first, then freshest CreatedAt, then higher rel — so the
+// user sees the latest take on the entity. Input order is otherwise
+// preserved (the winner keeps its original slot).
+func foldByEntityKey(rows []Card) []Card {
+	best := make(map[string]int, len(rows)) // entity key → index of current winner in out
+	out := make([]Card, 0, len(rows))
+	for i := range rows {
+		c := rows[i]
+		if c.EntityKey == "" {
+			out = append(out, c)
+			continue
+		}
+		if j, seen := best[c.EntityKey]; seen {
+			if cardBetterForFold(c, out[j]) {
+				out[j] = c
+			}
+			continue
+		}
+		best[c.EntityKey] = len(out)
+		out = append(out, c)
+	}
+	return out
+}
+
+// cardBetterForFold reports whether candidate a should replace the current
+// fold winner b for the same entity key.
+func cardBetterForFold(a, b Card) bool {
+	if a.Pinned != b.Pinned {
+		return a.Pinned
+	}
+	if !a.CreatedAt.Equal(b.CreatedAt) {
+		return a.CreatedAt.After(b.CreatedAt)
+	}
+	return relRank(a.Rel) < relRank(b.Rel)
+}
+
+func relRank(rel string) int {
+	switch rel {
+	case "high":
+		return 0
+	case "med":
+		return 1
+	case "low":
+		return 2
+	default:
+		return 3
+	}
+}
+
+// RecentEntity is a compact digest of an entity that surfaced recently —
+// fed into the cards prompt so the synthesizer can UPDATE or DROP an entity
+// it already showed instead of regenerating a near-duplicate. One row per
+// distinct EntityKey (the most recent).
+type RecentEntity struct {
+	EntityKey      string
+	Title          string
+	Source         string
+	Date           string
+	FirstShownDate string
+	LastMaterialAt *time.Time
+}
+
+// ListRecentEntities returns the most-recent row for each anchored entity
+// (non-empty EntityKey) seen on or after sinceDate, excluding dismissed
+// rows. Backs the "already surfaced recently" prompt block. Ordered most
+// recently shown first.
+func (r *CardRepo) ListRecentEntities(ctx context.Context, sinceDate string) ([]RecentEntity, error) {
+	var rows []Card
+	err := r.DB.WithContext(ctx).Table(r.tableName()).
+		Where("entity_key != '' AND date >= ? AND dismissed = false", sinceDate).
+		Order("date DESC, created_at DESC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(rows))
+	out := make([]RecentEntity, 0, len(rows))
+	for i := range rows {
+		c := rows[i]
+		if _, dup := seen[c.EntityKey]; dup {
+			continue
+		}
+		seen[c.EntityKey] = struct{}{}
+		out = append(out, RecentEntity{
+			EntityKey:      c.EntityKey,
+			Title:          c.Title,
+			Source:         c.Source,
+			Date:           c.Date,
+			FirstShownDate: c.FirstShownDate,
+			LastMaterialAt: c.LastMaterialAt,
+		})
+	}
+	return out, nil
 }
 
 // ListAllByDate returns every card row for the given date with no

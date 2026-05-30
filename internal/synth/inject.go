@@ -358,7 +358,15 @@ func parseFirstInjectCard(raw, date string, signal InjectSignal, now time.Time, 
 	first.Title = canonicalizeMarkdown(first.Title)
 	first.Sub = canonicalizeMarkdown(first.Sub)
 	first.Date = date
-	first.ID = slugFromTitle(first.Title)
+	// V2.x: an update-mode signal carries the entity key of an existing
+	// card; use it as the ID so the reactive card refreshes that card in
+	// place. Append-mode (or no entity key) keeps the title-slug ID.
+	if signal.Mode == InjectModeUpdate && signal.EntityKey != "" {
+		first.ID = signal.EntityKey
+		first.EntityKey = signal.EntityKey
+	} else {
+		first.ID = slugFromTitle(first.Title)
+	}
 	if len(set.Cards) > 1 && logger != nil {
 		logger.WithField("dropped", len(set.Cards)-1).
 			Info("inject: more than one card emitted — kept first, dropped rest")
@@ -392,6 +400,14 @@ func synthCardToStore(c Card, signal InjectSignal, now time.Time, runID string) 
 	if len(c.Expand) > 0 {
 		expandJSON, _ = json.Marshal(c.Expand)
 	}
+	// Update-mode reactive cards refresh an existing morning card in place,
+	// so they keep the empty origin (no "inject" badge) and carry the
+	// entity key. Append-mode cards are stamped Origin="inject" — exempt
+	// from DeleteStale and badged in the UI — exactly as before.
+	origin := "inject"
+	if signal.Mode == InjectModeUpdate && signal.EntityKey != "" {
+		origin = ""
+	}
 	return store.Card{
 		ID:        c.ID,
 		Date:      c.Date,
@@ -399,7 +415,7 @@ func synthCardToStore(c Card, signal InjectSignal, now time.Time, runID string) 
 		Source:    c.Source,
 		SrcLabel:  c.SrcLabel,
 		Rel:       firstNonEmpty(c.Rel, "high"),
-		Origin:    "inject",
+		Origin:    origin,
 		Title:     c.Title,
 		Sub:       c.Sub,
 		Meta:      metaJSON,
@@ -408,6 +424,7 @@ func synthCardToStore(c Card, signal InjectSignal, now time.Time, runID string) 
 		TraceID:   signal.EvidenceID,
 		RunID:     runID,
 		CreatedAt: now,
+		EntityKey: c.EntityKey,
 	}
 }
 

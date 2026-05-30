@@ -230,6 +230,20 @@ func (r *Runner) Run(ctx context.Context) (retErr error) {
 			proposalSuppress = ids
 		}
 	}
+	// V2.x: entities surfaced in the last week feed the continuity prompt
+	// block so the model updates/suppresses rather than duplicating.
+	// Best-effort: a lookup error proceeds without the block.
+	var recentCards []store.RecentEntity
+	{
+		cardsRepo := &store.CardRepo{DB: r.DB, Table: defaultIfEmpty(r.CardsTable, "cards")}
+		sinceDate := now.AddDate(0, 0, -7).Format("2006-01-02")
+		if rc, rcErr := cardsRepo.ListRecentEntities(cardsCtx, sinceDate); rcErr != nil {
+			logger.WithError(rcErr).Warn("synth: recent entities lookup failed; proceeding without continuity block")
+		} else {
+			recentCards = rc
+		}
+	}
+
 	cardSet, trace, memCandidates, err := SynthesizeCards(cardsCtx, CardsDeps{
 		LLM:                    r.LLM,
 		Reader:                 r.Reader,
@@ -257,6 +271,7 @@ func (r *Runner) Run(ctx context.Context) (retErr error) {
 		MarketsCtx:             projection.MarketsContext{Cfg: r.ProjCfg, Tickers: r.Tickers},
 		WiredIntents:           r.WiredIntents,
 		ProposalSuppress:       proposalSuppress,
+		RecentCards:            recentCards,
 	})
 	releaseCardsLive()
 	cardsCancel()
@@ -449,6 +464,14 @@ func toStoreCard(c Card, runID, date string) store.Card {
 	if len(c.Expand) > 0 {
 		expandJSON, _ = json.Marshal(c.Expand)
 	}
+	var itemsJSON datatypes.JSON
+	if len(c.Items) > 0 {
+		itemsJSON, _ = json.Marshal(c.Items)
+	}
+	var liveJSON datatypes.JSON
+	if len(c.Live) > 0 {
+		liveJSON, _ = json.Marshal(c.Live)
+	}
 	return store.Card{
 		ID:        c.ID,
 		Date:      date,
@@ -465,6 +488,9 @@ func toStoreCard(c Card, runID, date string) store.Card {
 		RunID:     runID,
 		CreatedAt: time.Now(),
 		ConcernID: c.ConcernID,
+		EntityKey: c.EntityKey,
+		Items:     itemsJSON,
+		Live:      liveJSON,
 	}
 }
 
@@ -510,7 +536,7 @@ func (r *Runner) persist(ctx context.Context, runID, date string, state State, c
 		cards := store.CardRepo{DB: tx, Table: cardsTbl}
 		briefings := store.BriefingRepo{DB: tx, Table: briefTbl}
 		traces := store.TraceRepo{DB: tx, Table: traceTbl}
-		if err := cards.Upsert(ctx, cardRows); err != nil {
+		if err := cards.UpsertWithContinuity(ctx, cardRows, time.Now()); err != nil {
 			return fmt.Errorf("upsert cards: %w", err)
 		}
 		if err := cards.DeleteStale(ctx, date, runID); err != nil {

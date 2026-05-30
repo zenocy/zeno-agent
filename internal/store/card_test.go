@@ -70,6 +70,157 @@ func TestCardRepo_UpsertAllowsMultipleSameSource(t *testing.T) {
 	require.Len(t, rows, 3, "three cards sharing (date, kind, source) must all persist")
 }
 
+// TestCardRepo_NewColumnsRoundTrip verifies the V2.x continuity/digest/live
+// columns persist and read back losslessly, including nil/empty.
+func TestCardRepo_NewColumnsRoundTrip(t *testing.T) {
+	db := openTestDB(t)
+	repo := &CardRepo{DB: db}
+	ctx := context.Background()
+
+	mat := time.Date(2026, 4, 25, 9, 30, 0, 0, time.UTC)
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		{
+			ID: "thread:redline", Date: "2026-04-25", Source: "mail", Rel: "high",
+			Title: "Saru · re: redline", CreatedAt: time.Now(),
+			EntityKey: "thread:redline", LastMaterialAt: &mat, FirstShownDate: "2026-04-24",
+			Items: datatypes.JSON(`[{"title":"item one"}]`),
+			Live:  datatypes.JSON(`[{"slot":"meta","kind":"weather","ref":"current"}]`),
+		},
+		// A row with all new fields at their zero value must persist fine.
+		{ID: "plain", Date: "2026-04-25", Source: "mail", Rel: "low", Title: "plain", CreatedAt: time.Now()},
+	}))
+
+	got, err := repo.GetByID(ctx, "thread:redline")
+	require.NoError(t, err)
+	require.Equal(t, "thread:redline", got.EntityKey)
+	require.Equal(t, "2026-04-24", got.FirstShownDate)
+	require.NotNil(t, got.LastMaterialAt)
+	require.True(t, mat.Equal(*got.LastMaterialAt))
+	require.JSONEq(t, `[{"title":"item one"}]`, string(got.Items))
+	require.JSONEq(t, `[{"slot":"meta","kind":"weather","ref":"current"}]`, string(got.Live))
+
+	plain, err := repo.GetByID(ctx, "plain")
+	require.NoError(t, err)
+	require.Empty(t, plain.EntityKey)
+	require.Nil(t, plain.LastMaterialAt)
+	require.Empty(t, plain.FirstShownDate)
+}
+
+// TestCardRepo_UpsertWithContinuity verifies the entity-aware upsert:
+// FirstShownDate is set once and preserved, LastMaterialAt bumps only on a
+// real content change, and user actions (dismissed) survive a re-run so a
+// stable entity ID can't resurrect a dismissed card.
+func TestCardRepo_UpsertWithContinuity(t *testing.T) {
+	db := openTestDB(t)
+	repo := &CardRepo{DB: db}
+	ctx := context.Background()
+
+	day1 := time.Date(2026, 4, 24, 7, 0, 0, 0, time.UTC)
+	require.NoError(t, repo.UpsertWithContinuity(ctx, []Card{
+		{ID: "thread:redline", EntityKey: "thread:redline", Date: "2026-04-24", Source: "mail", Rel: "high", Title: "Saru · redline", Sub: "Two questions remain.", CreatedAt: day1},
+	}, day1))
+
+	first, err := repo.GetByID(ctx, "thread:redline")
+	require.NoError(t, err)
+	require.Equal(t, "2026-04-24", first.FirstShownDate)
+	require.NotNil(t, first.LastMaterialAt)
+	require.True(t, day1.Equal(*first.LastMaterialAt))
+
+	// Idempotent re-run next day, SAME content → FirstShownDate preserved,
+	// LastMaterialAt NOT bumped.
+	day2 := time.Date(2026, 4, 25, 7, 0, 0, 0, time.UTC)
+	require.NoError(t, repo.UpsertWithContinuity(ctx, []Card{
+		{ID: "thread:redline", EntityKey: "thread:redline", Date: "2026-04-25", Source: "mail", Rel: "high", Title: "Saru · redline", Sub: "Two questions remain.", CreatedAt: day2},
+	}, day2))
+	unchanged, err := repo.GetByID(ctx, "thread:redline")
+	require.NoError(t, err)
+	require.Equal(t, "2026-04-24", unchanged.FirstShownDate, "first-shown must be preserved")
+	require.Equal(t, "2026-04-25", unchanged.Date, "date moves forward")
+	require.True(t, day1.Equal(*unchanged.LastMaterialAt), "unchanged content must not bump LastMaterialAt")
+
+	// Content change → LastMaterialAt bumps.
+	day3 := time.Date(2026, 4, 26, 7, 0, 0, 0, time.UTC)
+	require.NoError(t, repo.UpsertWithContinuity(ctx, []Card{
+		{ID: "thread:redline", EntityKey: "thread:redline", Date: "2026-04-26", Source: "mail", Rel: "high", Title: "Saru · redline", Sub: "New reply: he agreed to the option pool.", CreatedAt: day3},
+	}, day3))
+	changed, err := repo.GetByID(ctx, "thread:redline")
+	require.NoError(t, err)
+	require.True(t, day3.Equal(*changed.LastMaterialAt), "content change must bump LastMaterialAt")
+
+	// Dismiss it, then re-run with same entity ID → must STAY dismissed.
+	require.NoError(t, repo.SetDismissed(ctx, "thread:redline"))
+	day4 := time.Date(2026, 4, 27, 7, 0, 0, 0, time.UTC)
+	require.NoError(t, repo.UpsertWithContinuity(ctx, []Card{
+		{ID: "thread:redline", EntityKey: "thread:redline", Date: "2026-04-27", Source: "mail", Rel: "high", Title: "Saru · redline", Sub: "Still open.", CreatedAt: day4},
+	}, day4))
+	afterDismiss, err := repo.GetByID(ctx, "thread:redline")
+	require.NoError(t, err)
+	require.True(t, afterDismiss.Dismissed, "a re-run must not resurrect a dismissed entity card")
+}
+
+// TestCardRepo_ListByDate_FoldsByEntityKey verifies the cross-source dedup:
+// a morning card and an ask card sharing an entity key collapse to one
+// (freshest wins), while unanchored rows are never folded.
+func TestCardRepo_ListByDate_FoldsByEntityKey(t *testing.T) {
+	db := openTestDB(t)
+	repo := &CardRepo{DB: db}
+	ctx := context.Background()
+
+	morning := time.Date(2026, 4, 25, 7, 0, 0, 0, time.UTC)
+	ask := time.Date(2026, 4, 25, 9, 30, 0, 0, time.UTC)
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		{ID: "thread:redline", EntityKey: "thread:redline", Date: "2026-04-25", Source: "mail", Rel: "med", Title: "Saru · redline (morning)", CreatedAt: morning},
+		{ID: "ask-redline", EntityKey: "thread:redline", Date: "2026-04-25", Source: "mail", Rel: "high", Title: "Saru · redline (ask)", CreatedAt: ask},
+		{ID: "lone", EntityKey: "", Date: "2026-04-25", Source: "calendar", Rel: "low", Title: "standalone", CreatedAt: morning},
+	}))
+
+	rows, err := repo.ListByDate(ctx, "2026-04-25")
+	require.NoError(t, err)
+	require.Len(t, rows, 2, "the two redline rows must fold to one; the lone card stays")
+
+	var redline *Card
+	for i := range rows {
+		if rows[i].EntityKey == "thread:redline" {
+			redline = &rows[i]
+		}
+	}
+	require.NotNil(t, redline)
+	require.Equal(t, "Saru · redline (ask)", redline.Title, "freshest card wins the fold")
+}
+
+func TestCardRepo_ListRecentEntities(t *testing.T) {
+	db := openTestDB(t)
+	repo := &CardRepo{DB: db}
+	ctx := context.Background()
+
+	t0 := time.Date(2026, 4, 24, 7, 0, 0, 0, time.UTC)
+	t1 := time.Date(2026, 4, 25, 7, 0, 0, 0, time.UTC)
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		// Same entity on two days — only the latest should come back.
+		{ID: "thread:redline", EntityKey: "thread:redline", Date: "2026-04-24", Source: "mail", Rel: "high", Title: "old", CreatedAt: t0, FirstShownDate: "2026-04-24"},
+		{ID: "cal:gym", EntityKey: "cal:gym", Date: "2026-04-25", Source: "personal", Rel: "low", Title: "Gymnastics", CreatedAt: t1, FirstShownDate: "2026-04-25"},
+		// Unanchored row — excluded.
+		{ID: "lone", EntityKey: "", Date: "2026-04-25", Source: "calendar", Rel: "low", Title: "lone", CreatedAt: t1},
+		// Dismissed — excluded.
+		{ID: "cal:dead", EntityKey: "cal:dead", Date: "2026-04-25", Source: "calendar", Rel: "low", Title: "dead", CreatedAt: t1, Dismissed: true},
+	}))
+	// Update the redline entity on day 2 (same ID, newer date).
+	require.NoError(t, repo.Upsert(ctx, []Card{
+		{ID: "thread:redline", EntityKey: "thread:redline", Date: "2026-04-25", Source: "mail", Rel: "high", Title: "new", CreatedAt: t1, FirstShownDate: "2026-04-24"},
+	}))
+
+	got, err := repo.ListRecentEntities(ctx, "2026-04-20")
+	require.NoError(t, err)
+	keys := map[string]RecentEntity{}
+	for _, e := range got {
+		keys[e.EntityKey] = e
+	}
+	require.Len(t, got, 2, "unanchored and dismissed rows excluded; entity deduped to latest")
+	require.Equal(t, "new", keys["thread:redline"].Title, "latest row per entity wins")
+	require.Equal(t, "2026-04-24", keys["thread:redline"].FirstShownDate)
+	require.Contains(t, keys, "cal:gym")
+}
+
 func TestCardRepo_OrderByRel(t *testing.T) {
 	db := openTestDB(t)
 	repo := &CardRepo{DB: db}

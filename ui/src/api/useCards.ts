@@ -9,6 +9,12 @@ export function useCards() {
       if (!r.ok) throw new Error(`/api/cards returned ${r.status}`);
       return r.json();
     },
-    staleTime: 5 * 60 * 1000,
+    // V2.x live binding: cards carry serve-time-resolved values (weather,
+    // prices, countdowns) that the server re-resolves on every fetch. Keep
+    // the data fresh enough that those values stay current without a
+    // manual reload — refetch on a 60s cadence and when the tab refocuses.
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 }

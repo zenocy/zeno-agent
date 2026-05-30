@@ -347,6 +347,50 @@ func TestPostProcessCards_BackfillRunsAfterNormalize(t *testing.T) {
 	require.Equal(t, "Saru Patel · redline review", cs.Cards[0].Actions[0].Target["subject"])
 }
 
+// TestPostProcessCards_EntityKeyBecomesID confirms the V2.x wiring:
+// postProcessCards resolves an entity key for an anchored card and uses it
+// as the ID, so two differently-worded cards about the same thread upsert
+// onto one row. An unanchored card still falls back to the title slug.
+func TestPostProcessCards_EntityKeyBecomesID(t *testing.T) {
+	threads := []projection.Thread{
+		{Subject: "Saru Patel · redline questions", LastReceived: time.Now()},
+	}
+
+	a := CardSet{Cards: []Card{{Source: "mail", Title: "Saru · re: redline", Sub: "Two redline questions remain."}}}
+	b := CardSet{Cards: []Card{{Source: "mail", Title: "Redline — Saru's open items", Sub: "Saru still has redline questions."}}}
+	postProcessCards(&a, "2026-04-25", nil, threads, nil, nil)
+	postProcessCards(&b, "2026-04-25", nil, threads, nil, nil)
+
+	require.Equal(t, "thread:saru-patel-redline-questions", a.Cards[0].EntityKey)
+	require.Equal(t, a.Cards[0].EntityKey, a.Cards[0].ID, "anchored card uses entity key as ID")
+	require.Equal(t, a.Cards[0].ID, b.Cards[0].ID, "title drift on same thread → same ID → upsert collapses")
+
+	// Unanchored card (no matching thread/event) falls back to title slug.
+	c := CardSet{Cards: []Card{{Source: "mail", Title: "Quarterly vendor invoice", Sub: "Invoice due Friday."}}}
+	postProcessCards(&c, "2026-04-25", nil, threads, nil, nil)
+	require.Empty(t, c.Cards[0].EntityKey)
+	require.True(t, strings.HasPrefix(c.Cards[0].ID, "quarterly-"))
+}
+
+// TestPostProcessCards_DigestKeyAndItems confirms a digest card keeps its
+// rolled-up items and is keyed on digest:<date> so the day's refresh runs
+// upsert it in place.
+func TestPostProcessCards_DigestKeyAndItems(t *testing.T) {
+	cs := CardSet{Cards: []Card{{
+		Source: "mail", Kind: "digest",
+		Title: "5 newsletters & notifications",
+		Sub:   "Low-priority mail you can skim later.",
+		Items: []DigestItem{
+			{Title: "Stratechery — weekly", Src: "mail"},
+			{Title: "GitHub — 3 repos updated", Src: "mail"},
+		},
+	}}}
+	postProcessCards(&cs, "2026-04-25", nil, nil, nil, nil)
+	require.Equal(t, "digest:2026-04-25", cs.Cards[0].EntityKey)
+	require.Equal(t, "digest:2026-04-25", cs.Cards[0].ID)
+	require.Len(t, cs.Cards[0].Items, 2, "rolled-up items survive post-process")
+}
+
 func TestPostProcessCards_NormalizesIDsTitlesDates(t *testing.T) {
 	cs := CardSet{Cards: []Card{
 		{

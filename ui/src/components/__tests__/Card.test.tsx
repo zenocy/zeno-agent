@@ -84,4 +84,44 @@ describe("Card", () => {
     // word "traced" is the button label.
     expect(screen.getByText(/traced/i)).toBeInTheDocument();
   });
+
+  it("renders digest items as a list for kind='digest'", () => {
+    render(
+      <Card
+        card={{
+          ...base,
+          kind: "digest",
+          title: "Five low-signal threads",
+          items: [
+            { title: "Stratechery weekly", src: "mail" },
+            { title: "GitHub digest", sub: "3 repos updated" },
+          ],
+        }}
+      />,
+      { wrapper }
+    );
+    expect(screen.getByText("Stratechery weekly")).toBeInTheDocument();
+    expect(screen.getByText("GitHub digest")).toBeInTheDocument();
+    expect(screen.getByText("— 3 repos updated")).toBeInTheDocument();
+  });
+
+  it("shows a live freshness dot when a live value is fresh", () => {
+    render(
+      <Card card={{ ...base, live: [{ slot: "meta", kind: "stock", text: "$210.50 +1.25%" }] }} />,
+      { wrapper }
+    );
+    expect(screen.getByLabelText("Live value")).toBeInTheDocument();
+    expect(screen.queryByText("stale")).toBeNull();
+  });
+
+  it("shows a 'stale' marker when the latest live reading is stale", () => {
+    render(
+      <Card
+        card={{ ...base, live: [{ slot: "meta", kind: "stock", text: "$1.00 -3.4%", stale: true }] }}
+      />,
+      { wrapper }
+    );
+    expect(screen.getByText("stale")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Live value")).toBeNull();
+  });
 });

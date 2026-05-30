@@ -146,8 +146,27 @@ func buildInjectFn(d injectFnDeps) schedule.InjectFunc {
 			return fmt.Errorf("synth inject: %w", err)
 		}
 
-		// Persist + audit + publish.
-		if err := d.CardRepo.Upsert(ctx, []store.Card{result.Card}); err != nil {
+		// Persist + audit + publish. V2.x: an update-mode signal refreshes
+		// an existing entity card in place (continuity-aware upsert) rather
+		// than appending a new inject card. Guard against resurrecting a
+		// card the user dismissed or snoozed for today — if the target is
+		// hidden, skip the whole inject (no persist, no SSE publish).
+		if signal.Mode == synth.InjectModeUpdate && signal.EntityKey != "" {
+			existing, gerr := d.CardRepo.GetByID(ctx, result.Card.ID)
+			if gerr != nil {
+				return fmt.Errorf("lookup inject update target: %w", gerr)
+			}
+			if existing != nil && (existing.Dismissed || (existing.SnoozedDate != "" && existing.SnoozedDate == date)) {
+				if d.Logger != nil {
+					d.Logger.WithField("card_id", result.Card.ID).
+						Info("inject: update target is dismissed/snoozed — skipping")
+				}
+				return nil
+			}
+			if err := d.CardRepo.UpsertWithContinuity(ctx, []store.Card{result.Card}, now); err != nil {
+				return fmt.Errorf("persist inject update: %w", err)
+			}
+		} else if err := d.CardRepo.Upsert(ctx, []store.Card{result.Card}); err != nil {
 			return fmt.Errorf("persist inject card: %w", err)
 		}
 		if err := d.BriefingRepo.UpsertInject(ctx, result.Fragment); err != nil {

@@ -576,11 +576,14 @@ func runServe(args []string) {
 		Log:  bc.logger.WithField("c", "briefing"),
 	}).Register(srv.Echo)
 	(&api.CardsHandler{
-		Cards:  cardRepo,
-		Traces: traceRepo,
-		TZ:     bc.settingsSvc.TZ,
-		Now:    time.Now,
-		Log:    bc.logger.WithField("c", "cards"),
+		Cards:   cardRepo,
+		Traces:  traceRepo,
+		TZ:      bc.settingsSvc.TZ,
+		Now:     time.Now,
+		Log:     bc.logger.WithField("c", "cards"),
+		Reader:  bc.store,
+		ProjCfg: projCfg,
+		Tickers: bc.settingsSvc,
 	}).Register(srv.Echo)
 	(&api.ThreadsHandler{
 		Reader: bc.store,

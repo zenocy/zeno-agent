@@ -218,6 +218,20 @@ export function Card({ card, onOpen }: Props) {
             </p>
           )}
 
+          {/* Digest items (V2.x) — low-signal entries rolled up into one
+              card to cut repetition. Rendered as a compact list. */}
+          {card.kind === "digest" && card.items && card.items.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-1 max-w-[60ch]">
+              {card.items.map((it, i) => (
+                <li key={i} className="flex items-baseline gap-2 text-[13px] leading-[1.5]">
+                  <span className="h-[3px] w-[3px] rounded-full bg-ink-5 shrink-0 translate-y-[6px]" aria-hidden />
+                  <span className="text-ink-2 font-[500]">{it.title}</span>
+                  {it.sub && <span className="text-ink-4">— {it.sub}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+
           {/* Meta row — pin + rel dot live here as quiet inline tokens.
               srcLabel leads (matches design) followed by any extra meta
               entries the synth produced. */}
@@ -236,6 +250,24 @@ export function Card({ card, onOpen }: Props) {
                   <span>{m}</span>
                 </span>
               ))}
+              {/* Live-freshness affordance (V2.x). The values are already
+                  substituted into the meta/sub text; this marks them as
+                  live — a pulsing dot when fresh, a muted "stale" when the
+                  latest reading is past its window. */}
+              {card.live && card.live.length > 0 && (
+                card.live.some((l) => l.stale) ? (
+                  <span className="flex items-center gap-1 text-ink-5" title="Latest reading is stale">
+                    <span className="h-[5px] w-[5px] rounded-full bg-ink-5" aria-hidden />
+                    stale
+                  </span>
+                ) : (
+                  <span
+                    className="h-[5px] w-[5px] rounded-full bg-accent animate-pulse"
+                    aria-label="Live value"
+                    title="Live — updates on refresh"
+                  />
+                )
+              )}
             </div>
           )}
 

@@ -136,6 +136,25 @@ func TestSynthesizeInject_HappyPath(t *testing.T) {
 	require.NotEmpty(t, res.Fragment.Summary)
 }
 
+// TestSynthesizeInject_UpdateMode pins the V2.x update-in-place mapping: an
+// update-mode signal carrying an entity key produces a card whose ID IS that
+// entity key and whose Origin is empty (NOT "inject") — so the persist
+// Upsert refreshes the existing morning card rather than appending a badged
+// inject duplicate.
+func TestSynthesizeInject_UpdateMode(t *testing.T) {
+	deps, sig, _, cleanup := injectTestSetup(t, "inject_happy")
+	defer cleanup()
+
+	sig.Mode = InjectModeUpdate
+	sig.EntityKey = "thread:urgent-board-call-moved-to-10-30"
+
+	res, err := SynthesizeInject(context.Background(), deps, sig)
+	require.NoError(t, err)
+	require.Equal(t, sig.EntityKey, res.Card.ID, "update-mode card uses the entity key as ID")
+	require.Equal(t, sig.EntityKey, res.Card.EntityKey)
+	require.Empty(t, res.Card.Origin, "update-mode must NOT stamp Origin=inject — it refreshes the morning card")
+}
+
 // TestSynthesizeInject_TooManyCards_KeepsFirst pins the 2-card → 1-card
 // collapse: the model emits two cards (against the prompt instruction);
 // SynthesizeInject takes the first and drops the rest with a log note.

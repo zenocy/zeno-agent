@@ -44,11 +44,28 @@ type StateInputs struct {
 // consumed by Phase 3's inject synth. Phase 0 forward-declared it; Phase 3
 // fills in the producer.
 type InjectSignal struct {
-	Kind       string    // "email" | "calendar_move"
+	Kind       string    // "email" | "calendar_move" | "calendar_soon" | "stock_breach" | "stock_move" | "thread_reply"
 	Subject    string    // human-readable subject line for the inject card
 	EvidenceID string    // event-log ID of the underlying observation
 	At         time.Time // when the signal was detected
+
+	// EntityKey is the V2.x continuity anchor for the entity this signal is
+	// about ("thread:...", "cal:...", "ticker:..."). When non-empty and Mode
+	// is "update", the inject persist path uses it as the card ID so the
+	// reactive card refreshes the existing morning card in place instead of
+	// appending a duplicate. Empty → legacy append-only behavior.
+	EntityKey string
+	// Mode is "update" when the signal's entity already has a card today (so
+	// the reactive synth should refresh it) or "append" (the default) for a
+	// brand-new inject card. Empty is treated as "append".
+	Mode string
 }
+
+// Inject modes.
+const (
+	InjectModeAppend = "append"
+	InjectModeUpdate = "update"
+)
 
 // stateInputHorizon is the look-ahead window for next-meeting and
 // unbooked-block computations.

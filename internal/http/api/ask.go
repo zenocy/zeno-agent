@@ -183,7 +183,10 @@ func (h *AskHandler) ask(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, askResponse{
-		Card:    toCardDTO(storeCard(card, runID, date)),
+		// Freshly minted ask card — its values are current at synth time, so
+		// no live resolution is needed here; the next /api/cards fetch
+		// re-resolves any sentinels against the latest projection.
+		Card:    toCardDTO(storeCard(card, runID, date), liveViews{}),
 		TraceID: runID,
 	})
 }

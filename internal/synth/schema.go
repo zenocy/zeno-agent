@@ -54,7 +54,7 @@ type Card struct {
 	Source   string   `json:"src"                 zen:"required,enum=mail|calendar|personal|tasks|markets|ask"`
 	SrcLabel string   `json:"src_label"           zen:"required,maxlen=80"`
 	Rel      string   `json:"rel"                 zen:"required,enum=high|med|low"`
-	Kind     string   `json:"kind"                zen:"enum=|personal|reply_received"`
+	Kind     string   `json:"kind"                zen:"enum=|personal|reply_received|digest"`
 	Title    string   `json:"title"               zen:"required,minlen=4,maxlen=120"`
 	Sub      string   `json:"sub"                 zen:"required,minlen=20"`
 	Meta     []string `json:"meta"                zen:"maxitems=4"`
@@ -95,6 +95,54 @@ type Card struct {
 	// future URL-grounding pass — for now the model self-reports which
 	// URLs informed its answer.
 	Sources []Source `json:"sources,omitempty"`
+
+	// EntityKey is the V2.x continuity anchor: a stable, date-independent
+	// handle for the underlying entity this card is about ("cal:<uid>",
+	// "thread:<subj-slug>", "ticker:AAPL", "digest:<date>", "propose:<id>").
+	// Populated server-side by `postProcessCards` (`resolveEntityKey`), NOT
+	// by the model — so a refresh or next-day run that produces a card about
+	// the same entity Upserts in place instead of minting a duplicate row.
+	// Like ConcernID it is excluded from the LLM schema (`zen:"-"`).
+	EntityKey string `json:"-" zen:"-"`
+
+	// Live declares serve-time data bindings: the model emits a static
+	// skeleton with a sentinel token (e.g. ⟦weather⟧) in meta or at the end
+	// of sub, plus a matching Live entry naming what to resolve. The HTTP
+	// layer substitutes the current projection value on every GET so a
+	// card minted at 07:00 still shows current numbers without an LLM
+	// re-synth. Optional; empty on cards with no volatile data.
+	Live []LiveField `json:"live,omitempty" zen:"maxitems=3"`
+
+	// Items holds the rolled-up children of a kind="digest" card — many
+	// low-signal recurring entries (newsletters, minor threads) collapsed
+	// into one card to cut visual repetition. Empty on ordinary cards.
+	Items []DigestItem `json:"items,omitempty" zen:"maxitems=8"`
+}
+
+// LiveField is one serve-time data binding declared on a Card. All fields
+// are scalar strings/enums (no free-form map) so the generated JSON schema
+// is in Gemini's OpenAPI subset and survives relaxSchemaForLLM cleanly.
+//
+//	Slot — where the sentinel lives: a meta chip, or the tail of sub.
+//	Kind — which projection backs the value.
+//	Ref  — the lookup key: a ticker symbol, an event UID, or "current"
+//	       (weather has a single current snapshot).
+type LiveField struct {
+	Slot string `json:"slot" zen:"required,enum=meta|sub_suffix"`
+	Kind string `json:"kind" zen:"required,enum=weather|stock|countdown"`
+	Ref  string `json:"ref"  zen:"required,maxlen=40"`
+}
+
+// DigestItem is one rolled-up entry inside a kind="digest" card. Ref
+// carries the item's own entity key (or subject) so the UI can later
+// promote a single item back into its own card. All scalar fields —
+// Gemini-safe; the leading `|` in Src's enum admits "" and is dropped on
+// the LLM side by relaxSchemaForLLM while strict validation re-enforces it.
+type DigestItem struct {
+	Title string `json:"title"          zen:"required,maxlen=120"`
+	Sub   string `json:"sub,omitempty"  zen:"maxlen=160"`
+	Src   string `json:"src,omitempty"  zen:"enum=|mail|calendar|personal|tasks|markets"`
+	Ref   string `json:"ref,omitempty"  zen:"maxlen=80"`
 }
 
 // Source is one web citation under an ask card. Title is the

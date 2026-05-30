@@ -124,6 +124,14 @@ type CardsDeps struct {
 	// keyed on context_id. Empty disables the suppress block (legacy
 	// behavior).
 	ProposalSuppress []string
+
+	// V2.x: entities surfaced in the last few days (one row per entity
+	// key). Rendered into the "already surfaced recently" prompt block so
+	// the model UPDATES an entity with what's new or DROPS it when nothing
+	// changed, instead of regenerating a near-duplicate card. Empty
+	// disables the block. The entity-key Upsert is the hard dedup
+	// guarantee; this block is the soft "suppress unchanged" layer.
+	RecentCards []store.RecentEntity
 }
 
 // SynthesizeCards builds the system prompt from today's projections, runs the
@@ -183,6 +191,7 @@ func SynthesizeCards(ctx context.Context, d CardsDeps) (CardSet, llm.Trace, []ll
 		"Markets":          markets,
 		"WiredIntents":     d.WiredIntents,
 		"ProposalSuppress": d.ProposalSuppress,
+		"RecentCards":      d.RecentCards,
 	}); err != nil {
 		return CardSet{}, llm.Trace{}, nil, fmt.Errorf("render cards prompt: %w", err)
 	}
@@ -467,13 +476,19 @@ func postProcessCards(cs *CardSet, date string, cal []projection.CalendarEvent, 
 		cs.Cards[i].Sub = canonicalizeMarkdown(cs.Cards[i].Sub)
 		cs.Cards[i].Date = date
 
-		// Server-generate IDs from title for stable upsert. The model's id
-		// is ignored — local 7B/8B models drift on slugs.
-		// V2.13.0: a `send_whatsapp` proposal card targeting an event UID
-		// gets a deterministic `propose-confirm-<uid-slug>` ID so the
-		// upsert key is stable across cards-loop ticks (otherwise the
-		// model's title can drift slightly and produce duplicates).
-		cs.Cards[i].ID = stableCardID(&cs.Cards[i])
+		// Server-generate IDs for stable upsert. The model's id is ignored
+		// — local 7B/8B models drift on slugs. When the card resolves to a
+		// known entity (event UID, thread, ticker, digest, proposal) the
+		// entity key IS the ID, so a refresh or next-day run about the same
+		// entity Upserts in place instead of minting a near-duplicate (the
+		// V2.x repetition fix). Unanchored cards fall back to the title
+		// slug (legacy behavior).
+		cs.Cards[i].EntityKey = resolveEntityKey(&cs.Cards[i], date, cal, threads)
+		if cs.Cards[i].EntityKey != "" {
+			cs.Cards[i].ID = cs.Cards[i].EntityKey
+		} else {
+			cs.Cards[i].ID = stableCardID(&cs.Cards[i])
+		}
 
 		postProcessIntent(&cs.Cards[i])
 		if dropped := dropUnwiredActions(&cs.Cards[i], wired); dropped > 0 && logger != nil {
